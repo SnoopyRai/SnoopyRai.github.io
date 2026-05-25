@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WaveKit — M2: Servo &amp; Rudder Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #EEF2FF;
+  --surface:    #FFFFFF;
+  --surface2:   #F5F3FF;
+  --border:     #C7D2FE;
+  --primary:    #4F46E5;
+  --primary-l:  #818CF8;
+  --primary-d:  #3730A3;
+  --green:      #16A34A;
+  --green-l:    #22C55E;
+  --orange:     #D97706;
+  --red:        #DC2626;
+  --text:       #312E81;
+  --text-body:  #1E1B4B;
+  --text-muted: #6B7280;
+  --code-bg:    #F8F7FF;
+  --shadow:     0 6px 0 #C7D2FE, 0 8px 28px rgba(79,70,229,0.13);
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
+  --mono:       "JetBrains Mono", "Courier New", monospace;
+  --sans:       "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display:    "Fredoka", "Nunito", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-body);
+  line-height: 1.7;
+  font-size: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Top nav ────────────────────────────────────────────── */
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 2px 12px rgba(79,70,229,0.07);
+}
+.top-nav-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.brand-name {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.2px;
+}
+.brand-chip {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--sans);
+  white-space: nowrap;
+}
+.step-dots {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  gap: 0;
+}
+.step-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #E0E7FF;
+  color: var(--primary-l);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--display);
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+.step-dot::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 2px;
+  background: var(--border);
+}
+.step-dot:last-child::after { display: none; }
+.step-dot.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 10px rgba(79,70,229,0.35);
+}
+.step-dot.done { background: #22C55E; color: #fff; border-color: #22C55E; }
+.step-dot:hover:not(.active):not(.locked) {
+  background: #C7D2FE;
+  color: var(--primary-d);
+}
+.step-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.step-dot.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-section {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: none;
+}
+
+/* ── Page wrapper ───────────────────────────────────────── */
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 60%, #F0FDF4 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 30px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  bottom: -30px; left: 30px;
+  width: 100px; height: 100px;
+  background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mod-badge {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  font-family: var(--sans);
+}
+.hero h1 {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.hero-desc { color: #5B52B5; font-size: 14px; max-width: 500px; font-weight: 600; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.meta-chip {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.meta-chip .mlabel {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: block;
+  margin-bottom: 1px;
+  font-weight: 700;
+}
+.meta-chip .mvalue { color: var(--primary-d); font-weight: 700; }
+
+/* ── Section cards ──────────────────────────────────────── */
+section {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 28px 30px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  scroll-margin-top: 76px;
+  display: none;
+}
+section.active { display: block; }
+
+/* ── Headings ───────────────────────────────────────────── */
+h2 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+h2 .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 3px 0 var(--primary-d);
+}
+h3 {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 22px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+h3::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--primary-l);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+p { margin-bottom: 12px; color: var(--text-body); }
+
+/* ── Lists ──────────────────────────────────────────────── */
+ul, ol { padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 6px; color: var(--text-body); }
+li::marker { color: var(--primary); font-weight: 700; }
+ol li::marker { color: var(--primary); font-weight: 700; }
+
+/* ── Inline code ────────────────────────────────────────── */
+code {
+  font-family: var(--mono);
+  background: #EEF2FF;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.85em;
+  color: var(--primary-d);
+}
+
+/* ── Code block ─────────────────────────────────────────── */
+.code-block {
+  background: var(--code-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 0 #C7D2FE;
+}
+.code-block .code-header {
+  background: #EEF2FF;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid var(--border);
+}
+.code-block .code-lang {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.copy-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 3px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s;
+}
+.copy-btn:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.copy-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.copy-btn.copied { color: var(--green); border-color: var(--green-l); background: #F0FDF4; }
+.code-block pre {
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.kw  { color: #7C3AED; }
+.fn  { color: #2563EB; }
+.cm  { color: #9CA3AF; font-style: italic; }
+.str { color: #16A34A; }
+.num { color: #D97706; }
+.cn  { color: #DC2626; }
+.pn  { color: #374151; }
+.tx  { color: #1F2937; }
+
+/* ── Info boxes ─────────────────────────────────────────── */
+.box {
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin: 16px 0;
+  border-left: 5px solid;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.box-icon { flex-shrink: 0; margin-top: 2px; }
+.box-body { flex: 1; min-width: 0; }
+.box .box-title {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  font-family: var(--sans);
+}
+.box.tip  { background: #EEF2FF; border-color: var(--primary); }
+.box.tip  .box-title { color: var(--primary); }
+.box.tip  .box-icon  { color: var(--primary); }
+.box.err  { background: #FFF1F2; border-color: #F87171; }
+.box.err  .box-title { color: #B91C1C; }
+.box.err  .box-icon  { color: #EF4444; }
+.box.ok   { background: #F0FDF4; border-color: var(--green-l); }
+.box.ok   .box-title { color: var(--green); }
+.box.ok   .box-icon  { color: var(--green-l); }
+.box.warn { background: #FFFBEB; border-color: #FBBF24; }
+.box.warn .box-title { color: #92400E; }
+.box.warn .box-icon  { color: #F59E0B; }
+.box p    { margin: 0; font-size: 14px; color: var(--text-body); }
+
+/* ── Table ──────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: var(--sans);
+}
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #E0E7FF;
+  vertical-align: top;
+  color: var(--text-body);
+}
+tr:nth-child(odd)  td { background: #fff; }
+tr:nth-child(even) td { background: var(--surface2); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Step list ──────────────────────────────────────────── */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 0;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 18px;
+}
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before {
+  content: counter(step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--display);
+  flex-shrink: 0;
+  margin-top: 1px;
+  box-shadow: 0 3px 0 var(--primary-d);
+  position: relative;
+  z-index: 1;
+}
+.steps li::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px);
+}
+.steps li:last-child::after { display: none; }
+.steps li > span { padding-top: 4px; }
+
+/* ── Learn grid ─────────────────────────────────────────── */
+.learn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.learn-item {
+  background: #EEF2FF;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+.learn-item svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* ── Concept cards ──────────────────────────────────────── */
+.concept-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.concept-card {
+  background: #EEF2FF;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: 0 3px 0 var(--border);
+}
+.concept-card .c-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--primary-l);
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+.concept-card .c-fn {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--primary-d);
+  font-weight: 500;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+.concept-card p { font-size: 13px; margin: 0; color: var(--text-muted); }
+
+/* ── PWM diagram ────────────────────────────────────────── */
+.pwm-diagram {
+  background: var(--code-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  margin: 16px 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-body);
+  overflow-x: auto;
+}
+.pwm-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.pwm-row:last-child { margin-bottom: 0; }
+.pwm-label {
+  width: 72px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-d);
+  font-family: var(--sans);
+  text-align: right;
+}
+.pwm-bar-wrap {
+  flex: 1;
+  height: 28px;
+  background: #E0E7FF;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.pwm-on {
+  background: var(--primary);
+  border-radius: 4px 0 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--sans);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.pwm-off { flex: 1; }
+.pwm-angle {
+  width: 46px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--sans);
+}
+
+/* ── Wire table colours ─────────────────────────────────── */
+.wire-red    { color: #DC2626; font-weight: 700; }
+.wire-brown  { color: #92400E; font-weight: 700; }
+.wire-orange { color: #D97706; font-weight: 700; }
+
+/* ── Challenge block ────────────────────────────────────── */
+.challenge {
+  background: linear-gradient(135deg, #F5F3FF 0%, #ECFDF5 100%);
+  border: 2px solid #A78BFA;
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-top: 20px;
+}
+.challenge-title {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  color: #6D28D9;
+  margin-bottom: 10px;
+}
+
+/* ── Next banner ────────────────────────────────────────── */
+.next-banner {
+  background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-decoration: none;
+  color: var(--text-body);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--border);
+}
+.next-banner:hover { border-color: var(--primary); box-shadow: 0 4px 0 var(--primary-l); }
+.next-banner:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: var(--radius-md); }
+.next-banner .nb-arrow { color: var(--primary); flex-shrink: 0; }
+.next-banner .nb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700; }
+.next-banner .nb-title { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--text); margin-top: 3px; }
+.next-banner .nb-desc  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Section footer ─────────────────────────────────────── */
+.section-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 2px dashed var(--border);
+  gap: 12px;
+}
+
+/* Done checkbox */
+.done-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  flex: 1;
+  max-width: 300px;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 44px;
+  user-select: none;
+}
+.done-label:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.done-label.checked { background: #F0FDF4; border-color: var(--green-l); }
+.done-label.locked-label { opacity: 0.6; cursor: not-allowed; }
+.done-label.locked-label:hover { background: var(--surface2); border-color: var(--border); }
+.done-check {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.done-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--sans);
+}
+.done-label.checked .done-text { color: var(--green); }
+
+/* Wizard nav buttons — claymorphism */
+.btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--primary);
+  color: #fff;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-md);
+  padding: 11px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--display);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 5px 0 var(--primary-d), 0 8px 20px rgba(79,70,229,0.18);
+  min-height: 44px;
+  transform: translateY(0);
+}
+.btn-next:hover:not(:disabled)  {
+  background: var(--primary-d);
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 var(--primary-d), 0 10px 24px rgba(79,70,229,0.22);
+}
+.btn-next:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--primary-d);
+}
+.btn-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-next:disabled {
+  background: #C7D2FE;
+  color: #818CF8;
+  box-shadow: 0 4px 0 #A5B4FC;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--display);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 3px 0 var(--border);
+  min-height: 44px;
+}
+.btn-back:hover { border-color: var(--primary-l); color: var(--primary); transform: translateY(-1px); }
+.btn-back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
+.btn-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back.hidden, .btn-next.hidden { visibility: hidden; pointer-events: none; }
+
+/* ── Media placeholders ─────────────────────────────────── */
+.media-ph {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: #F5F3FF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  margin: 14px 0;
+}
+.media-ph.ph-sm { min-height: 100px; }
+.media-ph.ph-md { min-height: 160px; }
+.media-ph.ph-lg { min-height: 220px; }
+.media-ph .ph-icon { color: var(--primary-l); opacity: 0.7; }
+.media-ph .ph-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--sans);
+}
+.media-ph .ph-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-d);
+  font-family: var(--sans);
+}
+.media-ph .ph-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  max-width: 280px;
+  line-height: 1.4;
+}
+.media-ph.ph-gif { border-color: var(--green-l); background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); }
+.media-ph.ph-gif .ph-type  { color: var(--green); }
+.media-ph.ph-gif .ph-label { color: #15803D; }
+.media-ph.ph-gif .ph-icon  { color: var(--green-l); }
+
+/* ── Install / wiring checklist ─────────────────────────── */
+.install-group { margin: 22px 0; }
+.install-group-title {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.install-group-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 15px;
+  background: var(--primary-l);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.install-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 9px;
+  background: var(--surface2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.install-item:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.install-item.item-done { background: #F0FDF4; border-color: var(--green-l); }
+.install-check {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.install-item-text {
+  font-size: 14px;
+  color: var(--text-body);
+  font-weight: 600;
+  line-height: 1.55;
+}
+.install-item.item-done .install-item-text { color: #15803D; }
+
+/* ── MCQ ────────────────────────────────────────────────── */
+.mcq-list { display: flex; flex-direction: column; gap: 22px; margin: 20px 0; }
+.mcq-card { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; }
+.mcq-q { font-weight: 700; color: var(--text); margin-bottom: 8px; font-size: 15px; max-width: none; }
+.mcq-context { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; margin-bottom: 14px; overflow-x: auto; }
+.mcq-blank { background: #FEF3C7; border-radius: 4px; padding: 1px 8px; color: #92400E; font-weight: 700; }
+.mcq-options { display: flex; flex-direction: column; gap: 8px; }
+.mcq-opt {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-body);
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.mcq-opt:hover:not(:disabled) { border-color: var(--primary-l); background: #EEF2FF; }
+.mcq-opt.correct { border-color: var(--green); background: #F0FDF4; color: var(--green); }
+.mcq-opt.wrong   { border-color: var(--red);   background: #FFF1F2; color: var(--red); }
+.mcq-opt:disabled { cursor: default; }
+.mcq-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+}
+.mcq-opt.correct .mcq-badge { background: var(--green);  color: #fff; border-color: var(--green); }
+.mcq-opt.wrong   .mcq-badge { background: var(--red);    color: #fff; border-color: var(--red); }
+.mcq-explanation {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #F0FDF4;
+  border-left: 4px solid var(--green-l);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 14px;
+  color: var(--text-body);
+  display: none;
+  line-height: 1.6;
+}
+.mcq-explanation.show { display: block; }
+.mcq-score-row { margin-bottom: 4px; }
+.mcq-score-chip {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  display: inline-block;
+}
+.mcq-score-chip.all-ok { border-color: var(--green); color: var(--green); background: #F0FDF4; }
+
+/* ── Honor / reveal ─────────────────────────────────────── */
+.honor-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 11px 16px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+  transition: background 0.15s;
+}
+.honor-label:hover { background: #EEF2FF; }
+.honor-check { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.reveal-btn {
+  display: none;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 18px;
+  background: var(--surface2);
+  border: 1.5px dashed var(--primary-l);
+  border-radius: 12px;
+  color: var(--primary);
+  font-weight: 700;
+  font-family: var(--display);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.reveal-btn:hover { background: #EEF2FF; }
+.solution-reveal { display: none; margin-top: 14px; }
+
+/* ── Debug banner ───────────────────────────────────────── */
+.debug-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1E1B4B;
+  color: #A5B4FC;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  padding: 5px;
+  letter-spacing: 1px;
+  z-index: 100;
+}
+
+/* ── Debug toggle button ────────────────────────────────── */
+.debug-toggle-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+  min-height: 30px;
+}
+.debug-toggle-btn:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+.debug-toggle-btn.debug-on { background: #FEF3C7; border-color: #FBBF24; color: #92400E; }
+.debug-toggle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── Code fill-in blanks ────────────────────────────────── */
+.code-blank { font-family: var(--mono); font-size: 13px; background: #FEF3C7; border: 2px solid #FBBF24; border-radius: 6px; padding: 2px 6px; color: #92400E; min-width: 36px; text-align: center; outline: none; vertical-align: middle; transition: border-color 0.15s, background 0.15s; }
+.code-blank:focus { border-color: var(--primary); background: #EEF2FF; color: var(--primary-d); }
+.code-blank.blank-correct { background: #F0FDF4; border-color: var(--green-l); color: var(--green); }
+.code-blank.blank-wrong   { background: #FFF1F2; border-color: #F87171; color: var(--red); }
+
+/* ── Inline stuck collapsibles ──────────────────────────── */
+.stuck-details { margin: 8px 0; border-radius: var(--radius-sm); border: 1.5px solid var(--orange); background: #FFFBEB; overflow: hidden; }
+.stuck-summary { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); font-family: var(--sans); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.stuck-summary::-webkit-details-marker { display: none; }
+.stuck-summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+details[open] .stuck-summary::before { transform: rotate(90deg); }
+.stuck-body { padding: 4px 16px 14px; font-size: 13px; color: var(--text-body); border-top: 1px solid #FDE68A; }
+.stuck-body p { margin: 8px 0 0; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-l); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 60px; }
+  section { padding: 22px 18px; border-radius: 16px; }
+  .hero { padding: 22px 18px; }
+  .hero h1 { font-size: 22px; }
+  .learn-grid, .concept-grid { grid-template-columns: 1fr; }
+  h2 { font-size: 17px; }
+  .step-dot { width: 22px; height: 22px; font-size: 9px; }
+  .step-dot::after { width: 5px; }
+  .brand-chip { display: none; }
+  .nav-section { display: block; }
+  .top-nav-inner { gap: 10px; }
+  .btn-next, .btn-back { padding: 10px 14px; font-size: 13px; }
+  .done-label { max-width: none; }
+  .section-footer { flex-wrap: wrap; }
+}
+@media (max-width: 420px) {
+  .step-dot { width: 18px; height: 18px; font-size: 8px; }
+  .step-dot::after { width: 3px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sticky top nav ───────────────────────────────────── -->
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-name">WaveKit</span>
+      <span class="brand-chip">M2 of 5</span>
+    </a>
+
+    <nav class="step-dots" aria-label="Module sections">
+      <button class="step-dot active" data-index="0"  title="What You'll Learn">1</button>
+      <button class="step-dot locked"  data-index="1"  title="What You Need">2</button>
+      <button class="step-dot locked"  data-index="2"  title="Meet the Servo">3</button>
+      <button class="step-dot locked"  data-index="3"  title="What's a Library?">4</button>
+      <button class="step-dot locked"  data-index="4"  title="What is PWM?">5</button>
+      <button class="step-dot locked"  data-index="5"  title="Wire the Servo">6</button>
+      <button class="step-dot locked"  data-index="6"  title="The Sweep Sketch">7</button>
+      <button class="step-dot locked"  data-index="7"  title="Upload &amp; Test">8</button>
+      <button class="step-dot locked"  data-index="8"  title="Check Your Knowledge">9</button>
+      <button class="step-dot locked"  data-index="9"  title="Challenge">10</button>
+      <button class="step-dot locked"  data-index="10" title="What's Next">11</button>
+    </nav>
+
+    <span class="nav-section" id="current-section-label">What You'll Learn</span>
+    <button class="debug-toggle-btn" id="debug-toggle-btn" onclick="toggleDebug()" aria-label="Toggle debug mode" title="Unlock all sections for testing">🔒 Debug</button>
+  </div>
+</header>
+
+<!-- ── Page content ─────────────────────────────────────── -->
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════
+       1. WHAT YOU'LL LEARN
+  ═══════════════════════════════════════════ -->
+  <section id="learn" class="active">
+
+    <div class="hero">
+      <div class="mod-badge">Module 2 of 5</div>
+      <h1>Servo &amp; Rudder Control</h1>
+      <p class="hero-desc">Control the rudder and steer your boat left and right.</p>
+      <div class="meta-chips">
+        <div class="meta-chip">
+          <span class="mlabel">Time</span>
+          <span class="mvalue">30 – 45 min</span>
+        </div>
+        <div class="meta-chip">
+          <span class="mlabel">Difficulty</span>
+          <span class="mvalue">Beginner</span>
+        </div>
+        <div class="meta-chip">
+          <span class="mlabel">Prerequisites</span>
+          <span class="mvalue">Module 1</span>
+        </div>
+      </div>
+    </div>
+
+    <h2><span class="num">1</span> What You'll Learn</h2>
+    <div class="learn-grid">
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Include a library with <code>#include &lt;Servo.h&gt;</code>
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Create a <code>Servo</code> object and attach it to a GPIO pin
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Understand what a <strong>library</strong> is and why developers use them
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Understand what <strong>PWM</strong> is and how it controls servo position
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Write code to sweep the rudder left, centre, and right
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back hidden" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-learn">
+        <input type="checkbox" class="done-check" id="check-learn" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       2. WHAT YOU NEED
+  ═══════════════════════════════════════════ -->
+  <section id="parts">
+    <h2><span class="num">2</span> What You Need</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 DevKitC V4</td><td>Same board from Module 1</td></tr>
+          <tr><td>SG90 servo motor</td><td>WaveKit part — the small motor that steers the rudder</td></tr>
+          <tr><td>3 × DuPont jumper wires</td><td>Female-to-male; you need one red, one black/brown, one orange/yellow</td></tr>
+          <tr><td>USB-A to Micro-USB cable</td><td>Same data cable from Module 1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLACEHOLDER: Photo of all parts laid out -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">Parts photo</span>
+      <span class="ph-hint">Replace with: flat-lay photo of SG90 servo, 3 jumper wires, ESP32, and USB cable laid out on a clean surface</span>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Already done M1?</div>
+        <p>Your Arduino IDE and ESP32 board support are already set up. You can skip straight to wiring once you've read through the concepts.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-parts">
+        <input type="checkbox" class="done-check" id="check-parts" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       3. MEET THE SERVO
+  ═══════════════════════════════════════════ -->
+  <section id="servo">
+    <h2><span class="num">3</span> Meet the Servo</h2>
+    <p>A <strong>servo motor</strong> is a motor + gearbox + position sensor all in one small package. Instead of just spinning, it moves to an exact angle and holds there. That's what makes it perfect for steering a rudder.</p>
+
+    <p>The <strong>SG90</strong> is the servo in your WaveKit. It weighs 9 grams and can rotate between 0° and 180°.</p>
+
+    <!-- PLACEHOLDER: Photo of SG90 servo with labelled parts -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">SG90 servo — labelled</span>
+      <span class="ph-hint">Replace with: close-up photo of SG90 with labels pointing to the servo horn, body, 3-wire connector (red/brown/orange)</span>
+    </div>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Full left</div>
+        <div class="c-fn">write(0)</div>
+        <p>0 degrees — rudder turned hard left</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Centre</div>
+        <div class="c-fn">write(90)</div>
+        <p>90 degrees — rudder straight ahead</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Full right</div>
+        <div class="c-fn">write(180)</div>
+        <p>180 degrees — rudder turned hard right</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Any angle</div>
+        <div class="c-fn">write(45)</div>
+        <p>Any number 0–180 gives a precise position</p>
+      </div>
+    </div>
+
+    <h3>The 3 wires</h3>
+    <p>Your servo has three wires coming out of it. Each one does a different job:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Wire colour</th><th>Purpose</th><th>Connect to</th></tr></thead>
+        <tbody>
+          <tr><td><span class="wire-red">Red</span></td><td>Power (3.3V or 5V)</td><td>5V pin on the ESP32</td></tr>
+          <tr><td><span class="wire-brown">Brown / Black</span></td><td>Ground</td><td>GND pin on the ESP32</td></tr>
+          <tr><td><span class="wire-orange">Orange / Yellow</span></td><td>Signal (PWM)</td><td>GPIO 13 on the ESP32</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-servo">
+        <input type="checkbox" class="done-check" id="check-servo" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       4. WHAT'S A LIBRARY?
+  ═══════════════════════════════════════════ -->
+  <section id="library">
+    <h2><span class="num">4</span> What's a Library?</h2>
+    <p>A <strong>library</strong> is extra code that someone else has already written — and that you can use in your own program by including it. Think of it like borrowing a tool from a toolbox instead of building it yourself.</p>
+
+    <p>To use the Servo library, you put this line at the very top of your sketch:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="kw">#include</span> <span class="str">&lt;Servo.h&gt;</span></pre>
+    </div>
+
+    <p>This tells Arduino IDE: <em>"Load the Servo library so I can use its functions."</em></p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Without the library</div>
+        <div class="c-fn">~50 lines of complex timer code</div>
+        <p>You'd have to write your own PWM signal from scratch. Very hard.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">With the library</div>
+        <div class="c-fn">rudder.write(90)</div>
+        <p>One function call. The library handles everything for you.</p>
+      </div>
+    </div>
+
+    <h3>Creating a Servo object</h3>
+    <p>After including the library, you create a <strong>Servo object</strong> — a named variable that represents your physical servo motor:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="cn">Servo</span> <span class="tx">rudder</span><span class="pn">;</span>   <span class="cm">// creates a Servo object called "rudder"</span></pre>
+    </div>
+    <p>You can name it anything — <code>rudder</code> makes sense because that's what it controls. Then in <code>setup()</code> you tell it which GPIO pin the signal wire is connected to:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="tx">rudder</span><span class="pn">.</span><span class="fn">attach</span><span class="pn">(</span><span class="num">13</span><span class="pn">);</span>   <span class="cm">// signal wire is on GPIO 13</span></pre>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-library">
+        <input type="checkbox" class="done-check" id="check-library" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       5. WHAT IS PWM?
+  ═══════════════════════════════════════════ -->
+  <section id="pwm">
+    <h2><span class="num">5</span> What is PWM?</h2>
+    <p><strong>PWM</strong> stands for <strong>Pulse Width Modulation</strong>. Instead of sending a constant voltage to the servo, the ESP32 sends a very fast repeating ON/OFF signal.</p>
+
+    <p>The servo reads <em>how long</em> the signal stays ON each cycle — that's called the <strong>pulse width</strong>. Different pulse widths = different angles:</p>
+
+    <div class="pwm-diagram">
+      <div class="pwm-row">
+        <div class="pwm-label">0° left</div>
+        <div class="pwm-bar-wrap">
+          <div class="pwm-on" style="width:10%">1 ms</div>
+          <div class="pwm-off"></div>
+        </div>
+        <div class="pwm-angle">0°</div>
+      </div>
+      <div class="pwm-row">
+        <div class="pwm-label">Centre</div>
+        <div class="pwm-bar-wrap">
+          <div class="pwm-on" style="width:15%">1.5 ms</div>
+          <div class="pwm-off"></div>
+        </div>
+        <div class="pwm-angle">90°</div>
+      </div>
+      <div class="pwm-row">
+        <div class="pwm-label">180° right</div>
+        <div class="pwm-bar-wrap">
+          <div class="pwm-on" style="width:20%">2 ms</div>
+          <div class="pwm-off"></div>
+        </div>
+        <div class="pwm-angle">180°</div>
+      </div>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">You don't need to think about this</div>
+        <p>The Servo library converts your angle (0–180) into the right PWM pulse automatically. When you write <code>rudder.write(90)</code>, the library sends a 1.5 ms pulse — you never have to touch the timing yourself.</p>
+      </div>
+    </div>
+
+    <p>This is why libraries are so useful — they hide the complicated details so you can focus on the interesting part: making the servo move.</p>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-pwm">
+        <input type="checkbox" class="done-check" id="check-pwm" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       6. WIRE THE SERVO
+  ═══════════════════════════════════════════ -->
+  <section id="wiring">
+    <h2><span class="num">6</span> Wire the Servo</h2>
+    <p>Connect the servo's three wires to the ESP32 using your DuPont jumper cables:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Servo wire</th><th>ESP32 pin</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="wire-red">Red</span> (power)</td>
+            <td><strong>5V</strong> (VIN on some boards)</td>
+            <td>The SG90 needs 4.8–6V to move properly</td>
+          </tr>
+          <tr>
+            <td><span class="wire-brown">Brown / Black</span> (ground)</td>
+            <td><strong>GND</strong></td>
+            <td>Completes the circuit</td>
+          </tr>
+          <tr>
+            <td><span class="wire-orange">Orange / Yellow</span> (signal)</td>
+            <td><strong>GPIO 13</strong></td>
+            <td>Receives the PWM signal from your code</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLACEHOLDER: Wiring diagram -->
+    <div class="media-ph ph-lg" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Diagram</span>
+      <span class="ph-label">Wiring diagram — ESP32 to SG90</span>
+      <span class="ph-hint">Replace with: breadboard diagram showing ESP32 with red wire to 5V, brown/black wire to GND, orange/yellow wire to GPIO 13</span>
+    </div>
+
+    <div class="box warn">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="box-body">
+        <div class="box-title">Use the 5V pin, not 3.3V</div>
+        <p>If you power the servo from the 3.3V pin, it may twitch but not reach its full position. The ESP32's 3.3V output doesn't provide enough current for the servo's motor under load. Always use the <strong>5V / VIN pin</strong> for servos.</p>
+      </div>
+    </div>
+
+    <p>Tick each wire as you connect it. The Done button unlocks only when all three are connected.</p>
+
+    <div class="install-group">
+      <div class="install-group-title">Connect all three wires</div>
+      <label class="install-item" id="wire-item-1">
+        <input type="checkbox" class="install-check" id="check-wire-1" onchange="checkWiringProgress();toggleWireDone(this)">
+        <span class="install-item-text"><span class="wire-red">Red</span> wire → <strong>5V</strong> pin on ESP32</span>
+      </label>
+      <label class="install-item" id="wire-item-2">
+        <input type="checkbox" class="install-check" id="check-wire-2" onchange="checkWiringProgress();toggleWireDone(this)">
+        <span class="install-item-text"><span class="wire-brown">Brown / Black</span> wire → <strong>GND</strong> pin on ESP32</span>
+      </label>
+      <label class="install-item" id="wire-item-3">
+        <input type="checkbox" class="install-check" id="check-wire-3" onchange="checkWiringProgress();toggleWireDone(this)">
+        <span class="install-item-text"><span class="wire-orange">Orange / Yellow</span> wire → <strong>GPIO 13</strong> on ESP32</span>
+      </label>
+    </div>
+
+    <div id="wiring-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">All three wires connected!</div>
+        <p>Double-check before powering on: Red → 5V, Brown/Black → GND, Orange/Yellow → GPIO 13.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="wiring-done-label" for="check-wiring">
+        <input type="checkbox" class="done-check" id="check-wiring" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="wiring-done-text">Connect all 3 wires first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       7. THE SWEEP SKETCH
+  ═══════════════════════════════════════════ -->
+  <section id="code">
+    <h2><span class="num">7</span> The Sweep Sketch</h2>
+    <p>Open Arduino IDE, create a new sketch, and type or paste this code:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — servo_sweep.ino</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="cm">// WaveKit M2 — Sweep the rudder servo left and right</span>
+
+<span class="kw">#include</span> <span class="str">&lt;Servo.h&gt;</span>              <span class="cm">// load the Servo library</span>
+
+<span class="cn">Servo</span> <span class="tx">rudder</span><span class="pn">;</span>                 <span class="cm">// create a Servo object named "rudder"</span>
+
+<span class="kw">const int</span> <span class="cn">SERVO_PIN</span> <span class="pn">=</span> <span class="num">13</span><span class="pn">;</span>    <span class="cm">// GPIO 13 — servo signal wire (orange)</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">attach</span><span class="pn">(</span><span class="cn">SERVO_PIN</span><span class="pn">);</span>  <span class="cm">// tell the library which pin to use</span>
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>          <span class="cm">// centre the rudder on startup</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">500</span><span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">0</span><span class="pn">);</span>           <span class="cm">// full left</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>          <span class="cm">// centre</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">500</span><span class="pn">);</span>
+
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">180</span><span class="pn">);</span>         <span class="cm">// full right</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>          <span class="cm">// centre</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">500</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <h3>What each part does</h3>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Include</div>
+        <div class="c-fn">#include &lt;Servo.h&gt;</div>
+        <p>Loads the library. Must be at the very top, before anything else.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Object</div>
+        <div class="c-fn">Servo rudder;</div>
+        <p>Creates a variable that represents the physical servo. Goes before <code>setup()</code>.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Attach</div>
+        <div class="c-fn">rudder.attach(SERVO_PIN)</div>
+        <p>Links the object to a GPIO pin. Call once in <code>setup()</code>.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Move</div>
+        <div class="c-fn">rudder.write(angle)</div>
+        <p>Sets the angle (0–180). Call as many times as you like in <code>loop()</code>.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-code">
+        <input type="checkbox" class="done-check" id="check-code" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       8. CHECK YOUR KNOWLEDGE (MCQ)
+  ═══════════════════════════════════════════ -->
+  <section id="typecheck">
+    <h2><span class="num">9</span> Check Your Knowledge</h2>
+    <p>Five questions — one per key concept from this module. Pick the best answer for each. An explanation appears immediately so you understand <em>why</em>, not just <em>what</em>. You need all 5 correct to move on.</p>
+
+    <div class="mcq-score-row">
+      <span class="mcq-score-chip" id="mcq-score-chip">0 / 5 correct</span>
+    </div>
+
+    <div class="mcq-list">
+
+      <!-- Q1 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q1 — What does PWM stand for?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Power Wire Management</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> Pulse Width Modulation</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> Programmed Wave Motion</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Passive Width Meter</button>
+        </div>
+        <div class="mcq-explanation"><strong>Pulse Width Modulation</strong> is correct. The ESP32 sends a repeating ON/OFF signal and the servo reads <em>how long</em> the pulse stays ON (the pulse width) to determine its angle. The Servo library handles all of this automatically when you call <code>rudder.write(angle)</code>.</div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q2 — Looking at the PWM diagram, what pulse width corresponds to the centre position (90°)?</p>
+        <div class="mcq-context">0°: <strong>1 ms</strong> pulse &nbsp;|&nbsp; 90°: <span class="mcq-blank">? ms</span> pulse &nbsp;|&nbsp; 180°: <strong>2 ms</strong> pulse</div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> 0.5 ms</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> 1 ms</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> 1.5 ms</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> 2.5 ms</button>
+        </div>
+        <div class="mcq-explanation"><strong>1.5 ms</strong> is correct — it's exactly halfway between 1 ms (0°) and 2 ms (180°), which gives the 90° centre position. You don't need to memorise these numbers — the Servo library converts angles to pulses automatically — but understanding the pattern helps you reason about what's happening.</div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q3 — Which wire on the SG90 servo carries the PWM signal?</p>
+        <div class="mcq-context">Red wire → 5V &nbsp;|&nbsp; Brown/Black wire → GND &nbsp;|&nbsp; <span class="mcq-blank">?</span> wire → GPIO 13</div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Red</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Brown / Black</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> Orange / Yellow</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Any wire works</button>
+        </div>
+        <div class="mcq-explanation"><strong>Orange / Yellow</strong> is correct. The red wire is power, brown/black is ground, and orange/yellow is the signal. Swapping power and ground won't damage the servo but it won't work — and connecting the signal wire to the wrong pin just means your code controls nothing.</div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q4 — What does the number <code>13</code> refer to in this line?</p>
+        <div class="mcq-context"><span class="tx">rudder</span><span class="pn">.</span><span class="fn">attach</span><span class="pn">(</span><span class="mcq-blank">13</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> The number of degrees to move</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> The servo's speed setting</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> The GPIO pin number</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> The library version</button>
+        </div>
+        <div class="mcq-explanation"><strong>The GPIO pin number</strong> is correct. <code>attach(pin)</code> tells the Servo library which physical pin on the ESP32 the signal wire is connected to. In this sketch it's GPIO 13 — matching the orange wire in the wiring step. If you moved the wire to a different pin, you'd update this number too.</div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q5 — What does this line do?</p>
+        <div class="mcq-context"><span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="mcq-blank">0</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Turns the servo off</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Moves the servo to the centre (90°)</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> Moves the servo to 0° (full left)</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Pauses the servo for 0 milliseconds</button>
+        </div>
+        <div class="mcq-explanation"><strong>Moves the servo to 0° (full left)</strong> is correct. <code>write(angle)</code> sends the servo to that specific angle. 0° is the leftmost position, 90° is centre, 180° is full right. It doesn't turn the servo off — to stop sending PWM you'd call <code>rudder.detach()</code>.</div>
+      </div>
+
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="typecheck-done-label" for="check-typecheck">
+        <input type="checkbox" class="done-check" id="check-typecheck" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="typecheck-done-text">Answer all 5 correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       9. UPLOAD & TEST
+  ═══════════════════════════════════════════ -->
+  <section id="upload">
+    <h2><span class="num">8</span> Upload &amp; Test</h2>
+    <p>Fill in the three blanks — the pin number and both servo angles you learned in this module. Once all are correct, click <strong>Copy</strong>, paste into Arduino IDE, and upload.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — fill in the blanks, then copy</span>
+        <button class="copy-btn" id="copy-upload-btn" onclick="copyFilledCode(this)" disabled>Copy</button>
+      </div>
+      <pre><span class="kw">#include</span> <span class="str">&lt;Servo.h&gt;</span>
+
+<span class="fn">Servo</span> rudder<span class="pn">;</span>
+<span class="kw">const</span> <span class="kw">int</span> SERVO_PIN <span class="pn">=</span> <input class="code-blank" data-answer="13" placeholder="?" oninput="checkUploadBlanks()" size="2" aria-label="GPIO pin"><span class="pn">;</span>  <span class="cm">// which GPIO is the signal wire on?</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  rudder<span class="pn">.</span><span class="fn">attach</span><span class="pn">(</span>SERVO_PIN<span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><input class="code-blank" data-answer="0" placeholder="?" oninput="checkUploadBlanks()" size="2" aria-label="full left angle"><span class="pn">);</span>    <span class="cm">// full left (what angle?)</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+  rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>    <span class="cm">// centre</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">500</span><span class="pn">);</span>
+  rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><input class="code-blank" data-answer="180" placeholder="??" oninput="checkUploadBlanks()" size="3" aria-label="full right angle"><span class="pn">);</span>  <span class="cm">// full right (what angle?)</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+  rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>    <span class="cm">// centre</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">500</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <div id="upload-blanks-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">All blanks correct!</div>
+        <p>Click <strong>Copy</strong> &rarr; paste into Arduino IDE &rarr; upload. Watch the servo sweep!</p>
+      </div>
+    </div>
+
+    <ol class="steps" style="margin-top:16px">
+      <li><span>Paste into Arduino IDE, confirm <strong>Tools &rarr; Board: ESP32 Dev Module</strong> and port</span></li>
+      <li><span>Click <strong>Upload (&#8594;)</strong> — wait for <em>&ldquo;Hard resetting via RTS pin&hellip;&rdquo;</em></span></li>
+      <li><span>The servo arm should sweep left &rarr; centre &rarr; right &rarr; centre, repeating every ~3 s</span></li>
+      <li><span>Try holding the servo horn — feel the torque pushing back. That&rsquo;s what steers the boat in water</span></li>
+    </ol>
+
+    <!-- PLACEHOLDER: GIF of servo sweeping after upload -->
+    <div class="media-ph ph-gif ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="ph-type">GIF</span>
+      <span class="ph-label">Servo sweeping after upload</span>
+      <span class="ph-hint">Replace with: GIF showing the servo arm sweeping left &rarr; centre &rarr; right &rarr; centre</span>
+    </div>
+
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Servo doesn&rsquo;t move at all?</summary>
+      <div class="stuck-body">
+        <p>Check the orange/yellow signal wire is connected to <strong>GPIO 13</strong>. Confirm <code>rudder.attach(SERVO_PIN)</code> is inside <code>setup()</code>, not <code>loop()</code>.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Servo twitches but won&rsquo;t reach position?</summary>
+      <div class="stuck-body">
+        <p>Power issue — move the red wire from 3.3V to the <strong>5V / VIN pin</strong> on the ESP32.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Compile error: &lsquo;Servo&rsquo; was not declared?</summary>
+      <div class="stuck-body">
+        <p>Make sure <code>#include &lt;Servo.h&gt;</code> is at the very top of your sketch — it must be the first line.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Upload fails with &ldquo;Connecting&hellip;&rdquo;?</summary>
+      <div class="stuck-body">
+        <p>Hold the <strong>BOOT</strong> button while clicking Upload; release when dots appear in the console.</p>
+      </div>
+    </details>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="upload-done-label" for="check-upload">
+        <input type="checkbox" class="done-check" id="check-upload" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="upload-done-text">Fill all blanks correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       10. CHALLENGE — SMOOTH SWEEP
+  ═══════════════════════════════════════════ -->
+  <section id="challenge">
+    <h2><span class="num">10</span> Challenge — Smooth Sweep</h2>
+    <p>Right now the servo <em>jumps</em> between positions. Can you make it move <strong>smoothly</strong> instead? Use a <code>for</code> loop to step through angles one degree at a time.</p>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">The goal</div>
+        <p>Replace <code>rudder.write(0)</code> and <code>rudder.write(180)</code> jumps with two <code>for</code> loops — one counting <em>up</em> (0 → 180) and one counting <em>down</em> (180 → 0). Each step adds a small <code>delay()</code> to control the speed.</p>
+      </div>
+    </div>
+
+    <p>Have a go at writing the loop yourself before revealing the hint:</p>
+
+    <label class="honor-label" for="check-honor">
+      <input type="checkbox" class="honor-check" id="check-honor" onchange="onHonorCheck()">
+      I've had a proper go at writing the loop myself
+    </label>
+
+    <button class="reveal-btn" id="reveal-btn" onclick="revealSolution()">
+      &#128161; Show the hint
+    </button>
+
+    <div class="solution-reveal" id="solution-reveal">
+      <div class="code-block" style="background:#fff;">
+        <div class="code-header">
+          <span class="code-lang">C++ — hint: smooth sweep in loop()</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><span class="cm">// Replace the jump positions with these two loops:</span>
+
+<span class="cm">// Sweep smoothly from 0° to 180°</span>
+<span class="kw">for</span> <span class="pn">(</span><span class="kw">int</span> <span class="tx">angle</span> <span class="pn">=</span> <span class="num">0</span><span class="pn">;</span> <span class="tx">angle</span> <span class="pn">&lt;=</span> <span class="num">180</span><span class="pn">;</span> <span class="tx">angle</span><span class="pn">++) {</span>
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="tx">angle</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">15</span><span class="pn">);</span>        <span class="cm">// try 5 for fast, 30 for slow</span>
+<span class="pn">}</span>
+
+<span class="cm">// Sweep smoothly from 180° back to 0°</span>
+<span class="kw">for</span> <span class="pn">(</span><span class="kw">int</span> <span class="tx">angle</span> <span class="pn">=</span> <span class="num">180</span><span class="pn">;</span> <span class="tx">angle</span> <span class="pn">&gt;=</span> <span class="num">0</span><span class="pn">;</span> <span class="tx">angle</span><span class="pn">--) {</span>
+  <span class="tx">rudder</span><span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="tx">angle</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">15</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+      </div>
+      <div class="box ok" style="margin-top:12px;">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="box-body">
+          <div class="box-title">Try tweaking the delay</div>
+          <p>Change <code>delay(15)</code> to a smaller number for faster sweeping or a larger number for slower. At <code>delay(5)</code> the boat's rudder moves almost as fast as a real RC boat.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-challenge">
+        <input type="checkbox" class="done-check" id="check-challenge" onchange="onCheckChange(this)">
+        <span class="done-text">Challenge done!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       12. WHAT'S NEXT
+  ═══════════════════════════════════════════ -->
+  <section id="next">
+    <h2><span class="num">11</span> What's Next</h2>
+
+    <div class="box ok">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Module 2 complete!</div>
+        <p>You can steer the boat. You've used a library, created a Servo object, wired up 3 connections, and proved the rudder works. That's real hardware control.</p>
+      </div>
+    </div>
+
+    <p>In <strong>Module 3</strong> you'll add the DC motor — wiring a transistor circuit and using ESP32's LEDC PWM to control speed with a single number from 0 to 255.</p>
+
+    <a class="next-banner" href="WaveKit_M3_Motor.html">
+      <div>
+        <div class="nb-label">Up next</div>
+        <div class="nb-title">Module 3 — DC Motor &amp; Throttle Control</div>
+        <div class="nb-desc">Spin the propeller and control boat speed with a transistor and LEDC PWM</div>
+      </div>
+      <svg class="nb-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-next">
+        <input type="checkbox" class="done-check" id="check-next" onchange="onCheckChange(this)">
+        <span class="done-text">Module 2 complete!</span>
+      </label>
+      <button class="btn-next hidden" onclick="nextStep()">Next &#8594;</button>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+/* ── Copy code ───────────────────────────────── */
+function copyCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Wizard ──────────────────────────────────── */
+var DEBUG_MODE = false;
+
+var SECTIONS = ['learn','parts','servo','library','pwm','wiring','code','upload','typecheck','challenge','next'];
+var NAMES = {
+  learn:        "What You'll Learn",
+  parts:        "What You Need",
+  servo:        "Meet the Servo",
+  library:      "What's a Library?",
+  pwm:          "What is PWM?",
+  wiring:       "Wire the Servo",
+  code:         "The Sweep Sketch",
+  typecheck:    "Check Your Knowledge",
+  upload:       "Upload & Test",
+  troubleshoot: "Troubleshoot",
+  challenge:    "Challenge",
+  next:         "What's Next"
+};
+
+var currentStep  = 0;
+var unlockedUpTo = 0;
+var dots = document.querySelectorAll('.step-dot');
+
+function updateDots() {
+  dots.forEach(function(dot, i) {
+    var sec   = document.getElementById(SECTIONS[i]);
+    var check = sec && sec.querySelector('.done-check');
+    var isDone   = check && check.checked;
+    var isActive = i === currentStep;
+    var isLocked = i > unlockedUpTo;
+    dot.classList.toggle('active', isActive);
+    dot.classList.toggle('done',   isDone && !isActive);
+    dot.classList.toggle('locked', isLocked);
+    dot.disabled    = isLocked;
+    dot.textContent = (isDone && !isActive) ? '✓' : String(i + 1);
+  });
+}
+
+function showStep(n, force) {
+  force = force || false;
+  if (n < 0 || n >= SECTIONS.length) return;
+  if (!force && n > unlockedUpTo) return;
+  SECTIONS.forEach(function(id, i) {
+    document.getElementById(id).classList.toggle('active', i === n);
+  });
+  var lbl = document.getElementById('current-section-label');
+  if (lbl) lbl.textContent = NAMES[SECTIONS[n]];
+  var hero = document.querySelector('.hero');
+  if (hero) hero.style.display = (n === 0) ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateDots();
+}
+
+function nextStep() { showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 0) showStep(currentStep - 1, true); }
+
+function onCheckChange(checkbox) {
+  var sec     = checkbox.closest('section');
+  var lbl     = checkbox.closest('.done-label');
+  var nextBtn = sec && sec.querySelector('.btn-next');
+  var idx     = SECTIONS.indexOf(sec.id);
+  lbl.classList.toggle('checked', checkbox.checked);
+  if (checkbox.checked) {
+    unlockedUpTo = Math.max(unlockedUpTo, idx + 1);
+    if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+  } else {
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  updateDots();
+}
+
+dots.forEach(function(dot, i) {
+  dot.addEventListener('click', function(){ showStep(i); });
+});
+
+/* ── Wiring checklist gate ───────────────────── */
+function toggleWireDone(cb) {
+  var item = cb.closest('.install-item');
+  if (item) item.classList.toggle('item-done', cb.checked);
+}
+
+function checkWiringProgress() {
+  if (DEBUG_MODE) return;
+  var all = ['check-wire-1','check-wire-2','check-wire-3'].every(function(id) {
+    return document.getElementById(id).checked;
+  });
+  var doneCheck = document.getElementById('check-wiring');
+  var doneLbl   = document.getElementById('wiring-done-label');
+  var doneText  = document.getElementById('wiring-done-text');
+  var wiringOk  = document.getElementById('wiring-ok');
+  if (all) {
+    doneCheck.disabled = false;
+    doneLbl.classList.remove('locked-label');
+    doneText.textContent = 'All wires connected — tick to continue!';
+    if (wiringOk) wiringOk.style.display = 'flex';
+  } else {
+    doneCheck.disabled = true;
+    doneLbl.classList.add('locked-label');
+    doneText.textContent = 'Connect all 3 wires first';
+    if (wiringOk) wiringOk.style.display = 'none';
+    if (doneCheck.checked) {
+      doneCheck.checked = false;
+      doneLbl.classList.remove('checked');
+      var nxt = document.querySelector('#section-wiring .btn-next') ||
+                document.querySelector('#wiring .btn-next');
+      if (nxt) nxt.disabled = true;
+      var idx = SECTIONS.indexOf('wiring');
+      if (unlockedUpTo > idx) unlockedUpTo = idx;
+      updateDots();
+    }
+  }
+}
+
+/* ── MCQ ─────────────────────────────────────── */
+var mcqScore = 0;
+function selectOption(btn, isCorrect) {
+  var card = btn.closest('.mcq-card');
+  if (card.dataset.answered) return;
+  card.dataset.answered = 'true';
+  card.querySelectorAll('.mcq-opt').forEach(function(b) { b.disabled = true; });
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    var correct = card.querySelector('[data-correct="true"]');
+    if (correct) correct.classList.add('correct');
+  }
+  card.querySelector('.mcq-explanation').classList.add('show');
+  if (isCorrect) {
+    mcqScore++;
+    var chip = document.getElementById('mcq-score-chip');
+    chip.textContent = mcqScore + ' / 5 correct';
+    if (mcqScore === 5) {
+      chip.classList.add('all-ok');
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      var dtxt = document.getElementById('typecheck-done-text');
+      if (dc)   { dc.disabled = false; }
+      if (dlbl) { dlbl.classList.remove('locked-label'); }
+      if (dtxt) { dtxt.textContent = 'All correct — continue!'; }
+    }
+  }
+}
+
+/* ── Upload fill-in blanks ───────────────────── */
+function checkUploadBlanks() {
+  if (DEBUG_MODE) return;
+  var blanks = document.querySelectorAll('#upload .code-blank');
+  var allCorrect = blanks.length > 0;
+  blanks.forEach(function(inp) {
+    var val = inp.value.trim(), ans = inp.dataset.answer;
+    if (val === ans) { inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong'); }
+    else if (val !== '') { inp.classList.add('blank-wrong'); inp.classList.remove('blank-correct'); allCorrect = false; }
+    else { inp.classList.remove('blank-correct','blank-wrong'); allCorrect = false; }
+  });
+  var copyBtn = document.getElementById('copy-upload-btn');
+  var okBox   = document.getElementById('upload-blanks-ok');
+  var dc      = document.getElementById('check-upload');
+  var dlbl    = document.getElementById('upload-done-label');
+  var dtxt    = document.getElementById('upload-done-text');
+  if (allCorrect) {
+    if (copyBtn) copyBtn.disabled = false;
+    if (okBox)   okBox.style.display = 'flex';
+    if (dc)      dc.disabled = false;
+    if (dlbl)    dlbl.classList.remove('locked-label');
+    if (dtxt)    dtxt.textContent = 'Sketch filled in — upload it!';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('upload') + 1);
+    updateDots();
+  } else {
+    if (copyBtn) copyBtn.disabled = true;
+    if (okBox)   okBox.style.display = 'none';
+    if (dc && !dc.checked) dc.disabled = true;
+    if (dlbl && !dc.checked) dlbl.classList.add('locked-label');
+  }
+}
+function copyFilledCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  function getText(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeName === 'INPUT') return n.value;
+    var t = ''; n.childNodes.forEach(function(c){ t += getText(c); }); return t;
+  }
+  navigator.clipboard.writeText(getText(pre)).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Challenge honor gate ────────────────────── */
+function onHonorCheck() {
+  var checked = document.getElementById('check-honor').checked;
+  document.getElementById('reveal-btn').style.display = checked ? 'block' : 'none';
+}
+function revealSolution() {
+  document.getElementById('solution-reveal').style.display = 'block';
+  var btn = document.getElementById('reveal-btn');
+  btn.disabled = true;
+  btn.textContent = '✓ Hint shown below';
+}
+
+/* ── Debug toggle ────────────────────────────── */
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  var btn    = document.getElementById('debug-toggle-btn');
+  var banner = document.getElementById('debug-banner');
+  if (DEBUG_MODE) {
+    unlockedUpTo = SECTIONS.length - 1;
+    document.querySelectorAll('.btn-next').forEach(function(b) { b.disabled = false; });
+    document.querySelectorAll('.done-check').forEach(function(c) { c.disabled = false; });
+    document.querySelectorAll('.done-label').forEach(function(l) { l.classList.remove('locked-label'); });
+    document.querySelectorAll('#upload .code-blank').forEach(function(inp) {
+      inp.value = inp.dataset.answer; inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong');
+    });
+    checkUploadBlanks();
+    btn.textContent = '🔓 Debug: ON';
+    btn.classList.add('debug-on');
+    banner.style.display = 'block';
+  } else {
+    unlockedUpTo = 0;
+    SECTIONS.forEach(function(id, i) {
+      var sec = document.getElementById(id);
+      var doneCheck = sec && sec.querySelector('.done-check');
+      var nextBtn   = sec && sec.querySelector('.btn-next');
+      if (doneCheck && doneCheck.checked) {
+        unlockedUpTo = Math.max(unlockedUpTo, i + 1);
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+      } else {
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = true;
+      }
+    });
+    checkWiringProgress();
+    checkUploadBlanks();
+    if (mcqScore < 5) {
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      if (dc && !dc.checked)   { dc.disabled = true; }
+      if (dlbl && !document.getElementById('check-typecheck').checked) { dlbl.classList.add('locked-label'); }
+    }
+    btn.textContent = '🔒 Debug: OFF';
+    btn.classList.remove('debug-on');
+    banner.style.display = 'none';
+  }
+  updateDots();
+}
+
+/* ── Init ────────────────────────────────────── */
+updateDots();
+showStep(0, true);
+</script>
+
+<div id="debug-banner" class="debug-banner" role="status" aria-live="polite" style="display:none">
+  ⚠ DEBUG MODE — all sections unlocked. Click "Debug: ON" to restore normal student gating.
+</div>
+</body>
+</html>

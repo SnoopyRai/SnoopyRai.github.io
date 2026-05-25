@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WaveKit — M4: WiFi Access Point</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #EEF2FF;
+  --surface:    #FFFFFF;
+  --surface2:   #F5F3FF;
+  --border:     #C7D2FE;
+  --primary:    #4F46E5;
+  --primary-l:  #818CF8;
+  --primary-d:  #3730A3;
+  --green:      #16A34A;
+  --green-l:    #22C55E;
+  --orange:     #D97706;
+  --red:        #DC2626;
+  --text:       #312E81;
+  --text-body:  #1E1B4B;
+  --text-muted: #6B7280;
+  --code-bg:    #F8F7FF;
+  --shadow:     0 6px 0 #C7D2FE, 0 8px 28px rgba(79,70,229,0.13);
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
+  --mono:       "JetBrains Mono", "Courier New", monospace;
+  --sans:       "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display:    "Fredoka", "Nunito", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text-body); line-height: 1.7; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Top nav ────────────────────────────────────────────── */
+.top-nav { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 2px solid var(--border); box-shadow: 0 2px 12px rgba(79,70,229,0.07); }
+.top-nav-inner { max-width: 800px; margin: 0 auto; padding: 0 24px; height: 58px; display: flex; align-items: center; gap: 16px; }
+.nav-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; text-decoration: none; }
+.brand-name { font-family: var(--display); font-size: 19px; font-weight: 600; color: var(--primary); letter-spacing: 0.2px; }
+.brand-chip { background: var(--bg); border: 1.5px solid var(--border); border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; color: var(--primary); font-family: var(--sans); white-space: nowrap; }
+.step-dots { display: flex; align-items: center; flex: 1; justify-content: center; gap: 0; }
+.step-dot { position: relative; width: 28px; height: 28px; border-radius: 50%; background: #E0E7FF; color: var(--primary-l); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--display); flex-shrink: 0; transition: background 0.2s, color 0.2s, box-shadow 0.2s; cursor: pointer; border: 2px solid transparent; }
+.step-dot::after { content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 8px; height: 2px; background: var(--border); }
+.step-dot:last-child::after { display: none; }
+.step-dot.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 2px 10px rgba(79,70,229,0.35); }
+.step-dot.done { background: #22C55E; color: #fff; border-color: #22C55E; }
+.step-dot:hover:not(.active):not(.locked) { background: #C7D2FE; color: var(--primary-d); }
+.step-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.step-dot.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-section { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; display: none; }
+
+/* ── Debug toggle button ────────────────────────────────── */
+.debug-toggle-btn { background: transparent; border: 1.5px solid var(--border); color: var(--text-muted); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; font-family: var(--sans); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: background 0.15s, border-color 0.15s, color 0.15s; letter-spacing: 0.3px; min-height: 30px; }
+.debug-toggle-btn:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+.debug-toggle-btn.debug-on { background: #FEF3C7; border-color: #FBBF24; color: #92400E; }
+.debug-toggle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── Page ───────────────────────────────────────────────── */
+.page { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero { background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 60%, #F0FDF4 100%); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 30px 28px; margin-bottom: 24px; position: relative; overflow: hidden; }
+.hero::before { content: ""; position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.hero::after { content: ""; position: absolute; bottom: -30px; left: 30px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.mod-badge { display: inline-block; background: var(--primary); color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; font-family: var(--sans); }
+.hero h1 { font-family: var(--display); font-size: 28px; font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 8px; }
+.hero-desc { color: #5B52B5; font-size: 14px; max-width: 500px; font-weight: 600; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.meta-chip { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; }
+.meta-chip .mlabel { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 1px; font-weight: 700; }
+.meta-chip .mvalue { color: var(--primary-d); font-weight: 700; }
+
+/* ── Section cards ──────────────────────────────────────── */
+section { background: var(--surface); border-radius: var(--radius-lg); padding: 28px 30px; margin-bottom: 20px; box-shadow: var(--shadow); scroll-margin-top: 76px; display: none; }
+section.active { display: block; }
+h2 { font-family: var(--display); font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 14px; font-weight: 600; flex-shrink: 0; box-shadow: 0 3px 0 var(--primary-d); }
+h3 { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--primary); margin: 22px 0 10px; display: flex; align-items: center; gap: 6px; }
+h3::before { content: ''; display: inline-block; width: 4px; height: 16px; background: var(--primary-l); border-radius: 2px; flex-shrink: 0; }
+p { margin-bottom: 12px; color: var(--text-body); }
+ul, ol { padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 6px; color: var(--text-body); }
+li::marker { color: var(--primary); font-weight: 700; }
+
+/* ── Inline code ────────────────────────────────────────── */
+code { font-family: var(--mono); background: #EEF2FF; border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.85em; color: var(--primary-d); }
+
+/* ── Code block ─────────────────────────────────────────── */
+.code-block { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-md); margin: 16px 0; overflow: hidden; box-shadow: 0 2px 0 #C7D2FE; }
+.code-block .code-header { background: #EEF2FF; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid var(--border); }
+.code-block .code-lang { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); font-weight: 700; font-family: var(--mono); }
+.copy-btn { background: var(--surface); border: 1.5px solid var(--border); color: var(--primary); border-radius: 8px; padding: 3px 12px; font-size: 11px; cursor: pointer; font-family: var(--sans); font-weight: 700; transition: background 0.15s; }
+.copy-btn:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.copy-btn.copied { color: var(--green); border-color: var(--green-l); background: #F0FDF4; }
+.code-block pre { padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.65; }
+.kw  { color: #7C3AED; } .fn  { color: #2563EB; } .cm  { color: #9CA3AF; font-style: italic; }
+.str { color: #16A34A; } .num { color: #D97706; } .cn  { color: #DC2626; }
+.pn  { color: #374151; } .tx  { color: #1F2937; }
+
+/* ── Info boxes ─────────────────────────────────────────── */
+.box { border-radius: var(--radius-md); padding: 14px 18px; margin: 16px 0; border-left: 5px solid; display: flex; gap: 12px; align-items: flex-start; }
+.box-icon { flex-shrink: 0; margin-top: 2px; }
+.box-body { flex: 1; min-width: 0; }
+.box .box-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; font-family: var(--sans); }
+.box.tip  { background: #EEF2FF; border-color: var(--primary); }
+.box.tip  .box-title { color: var(--primary); }
+.box.tip  .box-icon  { color: var(--primary); }
+.box.err  { background: #FFF1F2; border-color: #F87171; }
+.box.err  .box-title { color: #B91C1C; }
+.box.err  .box-icon  { color: #EF4444; }
+.box.ok   { background: #F0FDF4; border-color: var(--green-l); }
+.box.ok   .box-title { color: var(--green); }
+.box.ok   .box-icon  { color: var(--green-l); }
+.box.warn { background: #FFFBEB; border-color: #FBBF24; }
+.box.warn .box-title { color: #92400E; }
+.box.warn .box-icon  { color: #F59E0B; }
+.box p    { margin: 0; font-size: 14px; color: var(--text-body); }
+
+/* ── Table ──────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 12px; font-family: var(--sans); }
+td { padding: 9px 14px; border-bottom: 1px solid #E0E7FF; vertical-align: top; color: var(--text-body); }
+tr:nth-child(odd) td  { background: #fff; }
+tr:nth-child(even) td { background: var(--surface2); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Step list ──────────────────────────────────────────── */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li { counter-increment: step; display: flex; gap: 14px; margin-bottom: 0; align-items: flex-start; position: relative; padding-bottom: 18px; }
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before { content: counter(step); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 13px; font-weight: 700; font-family: var(--display); flex-shrink: 0; margin-top: 1px; box-shadow: 0 3px 0 var(--primary-d); position: relative; z-index: 1; }
+.steps li::after { content: ''; position: absolute; left: 14px; top: 32px; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px); }
+.steps li:last-child::after { display: none; }
+.steps li > span { padding-top: 4px; }
+
+/* ── Learn grid ─────────────────────────────────────────── */
+.learn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.learn-item { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; color: var(--text-body); font-weight: 600; }
+.learn-item svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* ── Concept cards ──────────────────────────────────────── */
+.concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.concept-card { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; box-shadow: 0 3px 0 var(--border); }
+.concept-card .c-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-l); margin-bottom: 5px; font-weight: 700; }
+.concept-card .c-fn { font-family: var(--mono); font-size: 12.5px; color: var(--primary-d); font-weight: 500; margin-bottom: 8px; word-break: break-all; }
+.concept-card p { font-size: 13px; margin: 0; color: var(--text-muted); }
+
+/* ── Client-server diagram ──────────────────────────────── */
+.cs-diagram { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; margin: 16px 0; display: flex; align-items: center; gap: 0; }
+.cs-node { background: #fff; border: 2px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; text-align: center; flex-shrink: 0; }
+.cs-node .cs-icon { font-size: 28px; display: block; margin-bottom: 4px; }
+.cs-node .cs-label { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text); }
+.cs-node .cs-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.cs-arrow { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 0 12px; }
+.cs-msg { font-size: 11px; font-family: var(--mono); display: flex; align-items: center; gap: 6px; }
+.cs-msg-text { background: #EEF2FF; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; white-space: nowrap; }
+.cs-msg-arrow { color: var(--primary); font-size: 14px; }
+.cs-msg.req .cs-msg-arrow { align-self: flex-end; }
+.cs-msg.res .cs-msg-arrow { align-self: flex-start; }
+
+/* ── Media placeholders ─────────────────────────────────── */
+.media-ph { border: 2px dashed var(--border); border-radius: var(--radius-md); background: #F5F3FF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 20px; text-align: center; margin: 14px 0; }
+.media-ph.ph-sm { min-height: 100px; } .media-ph.ph-md { min-height: 160px; } .media-ph.ph-lg { min-height: 220px; }
+.media-ph .ph-icon { color: var(--primary-l); opacity: 0.7; }
+.media-ph .ph-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--primary); font-family: var(--sans); }
+.media-ph .ph-label { font-size: 13px; font-weight: 700; color: var(--primary-d); font-family: var(--sans); }
+.media-ph .ph-hint { font-size: 11px; color: var(--text-muted); font-style: italic; max-width: 280px; line-height: 1.4; }
+.media-ph.ph-gif { border-color: var(--green-l); background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); }
+.media-ph.ph-gif .ph-type { color: var(--green); } .media-ph.ph-gif .ph-label { color: #15803D; } .media-ph.ph-gif .ph-icon { color: var(--green-l); }
+
+/* ── Next banner ────────────────────────────────────────── */
+.next-banner { background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; text-decoration: none; color: var(--text-body); transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer; box-shadow: 0 4px 0 var(--border); }
+.next-banner:hover { border-color: var(--primary); box-shadow: 0 4px 0 var(--primary-l); }
+.next-banner .nb-arrow { color: var(--primary); flex-shrink: 0; }
+.next-banner .nb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700; }
+.next-banner .nb-title { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--text); margin-top: 3px; }
+.next-banner .nb-desc  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Section footer ─────────────────────────────────────── */
+.section-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 20px; border-top: 2px dashed var(--border); gap: 12px; }
+.done-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 16px; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; flex: 1; max-width: 300px; transition: background 0.15s, border-color 0.15s; min-height: 44px; user-select: none; }
+.done-label:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.done-label.checked { background: #F0FDF4; border-color: var(--green-l); }
+.done-label.locked-label { opacity: 0.6; cursor: not-allowed; }
+.done-label.locked-label:hover { background: var(--surface2); border-color: var(--border); }
+.done-check { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.done-text { font-size: 13px; font-weight: 700; color: var(--text-muted); font-family: var(--sans); }
+.done-label.checked .done-text { color: var(--green); }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; border: 2px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); padding: 11px 24px; font-size: 15px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: background 0.15s, transform 0.15s, box-shadow 0.15s; box-shadow: 0 5px 0 var(--primary-d), 0 8px 20px rgba(79,70,229,0.18); min-height: 44px; transform: translateY(0); }
+.btn-next:hover:not(:disabled) { background: var(--primary-d); transform: translateY(-2px); box-shadow: 0 7px 0 var(--primary-d), 0 10px 24px rgba(79,70,229,0.22); }
+.btn-next:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--primary-d); }
+.btn-next:disabled { background: #C7D2FE; color: #818CF8; box-shadow: 0 4px 0 #A5B4FC; cursor: not-allowed; transform: none; }
+.btn-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--text-muted); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 10px 20px; font-size: 14px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s; box-shadow: 0 3px 0 var(--border); min-height: 44px; }
+.btn-back:hover { border-color: var(--primary-l); color: var(--primary); transform: translateY(-1px); }
+.btn-back:active { transform: translateY(2px); }
+.btn-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back.hidden, .btn-next.hidden { visibility: hidden; pointer-events: none; }
+
+/* ── Honor / reveal ─────────────────────────────────────── */
+.honor-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 11px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 12px; margin-top: 16px; font-size: 14px; font-weight: 600; color: var(--text-muted); user-select: none; transition: background 0.15s; }
+.honor-label:hover { background: #EEF2FF; }
+.honor-check { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.reveal-btn { display: none; width: 100%; margin-top: 10px; padding: 12px 18px; background: var(--surface2); border: 1.5px dashed var(--primary-l); border-radius: 12px; color: var(--primary); font-weight: 700; font-family: var(--display); font-size: 14px; cursor: pointer; text-align: left; transition: background 0.15s; }
+.reveal-btn:hover { background: #EEF2FF; }
+.solution-reveal { display: none; margin-top: 14px; }
+
+/* ── MCQ ────────────────────────────────────────────────── */
+.mcq-list { display: flex; flex-direction: column; gap: 22px; margin: 20px 0; }
+.mcq-card { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; }
+.mcq-q { font-weight: 700; color: var(--text); margin-bottom: 8px; font-size: 15px; }
+.mcq-context { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; margin-bottom: 14px; overflow-x: auto; }
+.mcq-blank { background: #FEF3C7; border-radius: 4px; padding: 1px 8px; color: #92400E; font-weight: 700; }
+.mcq-options { display: flex; flex-direction: column; gap: 8px; }
+.mcq-opt { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; color: var(--text-body); transition: border-color 0.15s, background 0.15s; display: flex; align-items: center; gap: 12px; width: 100%; }
+.mcq-opt:hover:not(:disabled) { border-color: var(--primary-l); background: #EEF2FF; }
+.mcq-opt.correct { border-color: var(--green); background: #F0FDF4; color: var(--green); }
+.mcq-opt.wrong   { border-color: var(--red);   background: #FFF1F2; color: var(--red); }
+.mcq-opt:disabled { cursor: default; }
+.mcq-badge { width: 24px; height: 24px; border-radius: 50%; background: var(--bg); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; border: 1.5px solid var(--border); }
+.mcq-opt.correct .mcq-badge { background: var(--green); color: #fff; border-color: var(--green); }
+.mcq-opt.wrong   .mcq-badge { background: var(--red);   color: #fff; border-color: var(--red); }
+.mcq-explanation { margin-top: 14px; padding: 12px 16px; background: #F0FDF4; border-left: 4px solid var(--green-l); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 14px; color: var(--text-body); display: none; line-height: 1.6; }
+.mcq-explanation.show { display: block; }
+.mcq-score-row { margin-bottom: 4px; }
+.mcq-score-chip { background: var(--bg); border: 2px solid var(--border); border-radius: 20px; padding: 4px 18px; font-size: 13px; font-weight: 700; color: var(--primary); display: inline-block; }
+.mcq-score-chip.all-ok { border-color: var(--green); color: var(--green); background: #F0FDF4; }
+
+/* ── Debug banner ───────────────────────────────────────── */
+.debug-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #1E1B4B; color: #A5B4FC; text-align: center; font-size: 11px; font-weight: 700; font-family: var(--sans); padding: 5px; letter-spacing: 1px; z-index: 100; }
+
+/* ── Code fill-in blanks ────────────────────────────────── */
+.code-blank { font-family: var(--mono); font-size: 13px; background: #FEF3C7; border: 2px solid #FBBF24; border-radius: 6px; padding: 2px 6px; color: #92400E; min-width: 36px; text-align: center; outline: none; vertical-align: middle; transition: border-color 0.15s, background 0.15s; }
+.code-blank:focus { border-color: var(--primary); background: #EEF2FF; color: var(--primary-d); }
+.code-blank.blank-correct { background: #F0FDF4; border-color: var(--green-l); color: var(--green); }
+.code-blank.blank-wrong   { background: #FFF1F2; border-color: #F87171; color: var(--red); }
+
+/* ── Inline stuck collapsibles ──────────────────────────── */
+.stuck-details { margin: 8px 0; border-radius: var(--radius-sm); border: 1.5px solid var(--orange); background: #FFFBEB; overflow: hidden; }
+.stuck-summary { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); font-family: var(--sans); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.stuck-summary::-webkit-details-marker { display: none; }
+.stuck-summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+details[open] .stuck-summary::before { transform: rotate(90deg); }
+.stuck-body { padding: 4px 16px 14px; font-size: 13px; color: var(--text-body); border-top: 1px solid #FDE68A; }
+.stuck-body p { margin: 8px 0 0; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-l); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 60px; }
+  section { padding: 22px 18px; }
+  .hero { padding: 22px 18px; }
+  .hero h1 { font-size: 22px; }
+  .learn-grid, .concept-grid { grid-template-columns: 1fr; }
+  h2 { font-size: 17px; }
+  .step-dot { width: 22px; height: 22px; font-size: 9px; }
+  .step-dot::after { width: 5px; }
+  .brand-chip { display: none; }
+  .nav-section { display: block; }
+  .top-nav-inner { gap: 10px; }
+  .btn-next, .btn-back { padding: 10px 14px; font-size: 13px; }
+  .done-label { max-width: none; }
+  .section-footer { flex-wrap: wrap; }
+  .cs-diagram { flex-direction: column; }
+}
+@media (max-width: 420px) {
+  .step-dot { width: 18px; height: 18px; font-size: 8px; }
+  .step-dot::after { width: 3px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-name">WaveKit</span>
+      <span class="brand-chip">M4 of 5</span>
+    </a>
+    <nav class="step-dots" aria-label="Module sections">
+      <button class="step-dot active" data-index="0"  title="What You'll Learn">1</button>
+      <button class="step-dot locked"  data-index="1"  title="What You Need">2</button>
+      <button class="step-dot locked"  data-index="2"  title="Station vs. Access Point">3</button>
+      <button class="step-dot locked"  data-index="3"  title="What is a Web Server?">4</button>
+      <button class="step-dot locked"  data-index="4"  title="HTML in a C++ String">5</button>
+      <button class="step-dot locked"  data-index="5"  title="The Access Point Sketch">6</button>
+      <button class="step-dot locked"  data-index="6"  title="The Serial Monitor">7</button>
+      <button class="step-dot locked"  data-index="7"  title="Upload &amp; Test">8</button>
+      <button class="step-dot locked"  data-index="8"  title="Check Your Knowledge">9</button>
+      <button class="step-dot locked"  data-index="9"  title="Challenge">10</button>
+      <button class="step-dot locked"  data-index="10" title="What's Next">11</button>
+    </nav>
+    <span class="nav-section" id="current-section-label">What You'll Learn</span>
+    <button class="debug-toggle-btn" id="debug-toggle-btn" onclick="toggleDebug()" aria-label="Toggle debug mode" title="Unlock all sections for testing">🔒 Debug</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- 1. WHAT YOU'LL LEARN -->
+  <section id="learn" class="active">
+    <div class="hero">
+      <div class="mod-badge">Module 4 of 5</div>
+      <h1>WiFi Access Point</h1>
+      <p class="hero-desc">Turn the ESP32 into a WiFi hotspot and serve a web page straight to your phone — no router needed.</p>
+      <div class="meta-chips">
+        <div class="meta-chip"><span class="mlabel">Time</span><span class="mvalue">30 – 40 min</span></div>
+        <div class="meta-chip"><span class="mlabel">Difficulty</span><span class="mvalue">Beginner</span></div>
+        <div class="meta-chip"><span class="mlabel">Prerequisites</span><span class="mvalue">Modules 1 – 3</span></div>
+      </div>
+    </div>
+    <h2><span class="num">1</span> What You'll Learn</h2>
+    <div class="learn-grid">
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Understand the difference between a WiFi <strong>station</strong> and an <strong>access point</strong>
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Create a WiFi hotspot with <code>WiFi.softAP()</code>
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Host an HTTP web server on the ESP32
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Serve an HTML page to your phone's browser
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Read the <strong>Serial Monitor</strong> to find the ESP32's IP address
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back hidden" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-learn">
+        <input type="checkbox" class="done-check" id="check-learn" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 2. WHAT YOU NEED -->
+  <section id="parts">
+    <h2><span class="num">2</span> What You Need</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 DevKitC V4</td><td>Same board from all previous modules</td></tr>
+          <tr><td>USB-A to Micro-USB cable</td><td>For programming and Serial Monitor</td></tr>
+          <tr><td>Phone (iOS or Android)</td><td>Any phone with WiFi and a browser</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- PLACEHOLDER: Photo of ESP32 + USB cable + phone -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">Parts photo</span>
+      <span class="ph-hint">Replace with: ESP32, USB cable, and a phone — no extra components needed for this module</span>
+    </div>
+    <div class="box ok">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Software-only module</div>
+        <p>No new wiring! The ESP32 has a built-in WiFi radio — everything in this module is code. You'll leave the servo and motor disconnected for now.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-parts">
+        <input type="checkbox" class="done-check" id="check-parts" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 3. STATION VS ACCESS POINT -->
+  <section id="wifi">
+    <h2><span class="num">3</span> Station vs. Access Point</h2>
+    <p>Every WiFi device operates in one of two roles:</p>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Station (STA)</div>
+        <div class="c-fn">WiFi.begin(ssid, pass)</div>
+        <p>Joins an existing network. Your laptop and phone usually run in this mode — they connect to a router.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Access Point (AP) ← we use this</div>
+        <div class="c-fn">WiFi.softAP(ssid, pass)</div>
+        <p>Creates its own network. The ESP32 becomes the router — other devices connect directly to it.</p>
+      </div>
+    </div>
+    <p>As an Access Point, the ESP32 doesn't need internet. It just needs to be powered. Any phone within WiFi range can connect to it directly — perfect for controlling a boat on a lake where there's no router.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><strong>SSID</strong></td><td>The WiFi network name (what you see in the WiFi list)</td></tr>
+          <tr><td><strong>Password</strong></td><td>The key to join the network (minimum 8 characters)</td></tr>
+          <tr><td><strong>IP address</strong></td><td>The ESP32's "address" on the network — always <code>192.168.4.1</code> in AP mode</td></tr>
+          <tr><td><strong>Port 80</strong></td><td>The standard port for HTTP web pages (your browser assumes port 80 automatically)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-wifi">
+        <input type="checkbox" class="done-check" id="check-wifi" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 4. WHAT IS A WEB SERVER? -->
+  <section id="server">
+    <h2><span class="num">4</span> What is a Web Server?</h2>
+    <p>When your phone connects to the WaveKit WiFi, it has a channel to the ESP32 — but no web pages yet. To send a page, the ESP32 needs to run a <strong>web server</strong>.</p>
+    <p>A web server is a program that listens for browser requests and sends back HTML. Every website you've ever visited — Google, YouTube, any page — is delivered by a web server. Ours just happens to run on a chip the size of a matchbox.</p>
+
+    <h3>The request–response conversation</h3>
+    <div class="cs-diagram">
+      <div class="cs-node">
+        <span class="cs-icon" aria-hidden="true">📱</span>
+        <div class="cs-label">Your phone</div>
+        <div class="cs-sub">(browser / client)</div>
+      </div>
+      <div class="cs-arrow">
+        <div class="cs-msg req">
+          <span class="cs-msg-text">GET / HTTP/1.1</span>
+          <span class="cs-msg-arrow">→</span>
+        </div>
+        <div class="cs-msg res">
+          <span class="cs-msg-arrow">←</span>
+          <span class="cs-msg-text">200 OK · text/html · &lt;html&gt;...&lt;/html&gt;</span>
+        </div>
+      </div>
+      <div class="cs-node">
+        <span class="cs-icon" aria-hidden="true">🔌</span>
+        <div class="cs-label">ESP32</div>
+        <div class="cs-sub">(web server)</div>
+      </div>
+    </div>
+
+    <p>This exchange happens in milliseconds. In our sketch, the <code>WebServer</code> library handles all the HTTP formatting — you just write what to send back.</p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Status 200</div>
+        <div class="c-fn">200 OK</div>
+        <p>Request succeeded — here's the page</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Status 404</div>
+        <div class="c-fn">404 Not Found</div>
+        <p>The server couldn't find that path</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Content type</div>
+        <div class="c-fn">"text/html"</div>
+        <p>Tells the browser to render the response as a web page</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Route handler</div>
+        <div class="c-fn">server.on("/", fn)</div>
+        <p>"When someone requests '/', call this function"</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-server">
+        <input type="checkbox" class="done-check" id="check-server" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 5. HTML IN A C++ STRING -->
+  <section id="http">
+    <h2><span class="num">5</span> HTML in a C++ String</h2>
+    <p>The web page the ESP32 serves is just a text string containing HTML. Here's the minimal structure:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">HTML — the page we'll serve</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="cm">&lt;!-- Every web page starts with this --&gt;</span>
+<span class="kw">&lt;!DOCTYPE html&gt;</span>
+<span class="kw">&lt;html&gt;</span>
+
+<span class="kw">&lt;head&gt;</span>
+  <span class="cm">&lt;!-- Title shown in the browser tab --&gt;</span>
+  <span class="kw">&lt;title&gt;</span><span class="tx">WaveKit</span><span class="kw">&lt;/title&gt;</span>
+  <span class="cm">&lt;!-- Makes it look correct on a phone screen --&gt;</span>
+  <span class="kw">&lt;meta</span> <span class="tx">name</span><span class="pn">=</span><span class="str">'viewport'</span> <span class="tx">content</span><span class="pn">=</span><span class="str">'width=device-width,initial-scale=1'</span><span class="kw">&gt;</span>
+<span class="kw">&lt;/head&gt;</span>
+
+<span class="kw">&lt;body&gt;</span>
+  <span class="kw">&lt;h1&gt;</span><span class="tx">Hello from WaveKit!</span><span class="kw">&lt;/h1&gt;</span>   <span class="cm">&lt;!-- Big heading --&gt;</span>
+  <span class="kw">&lt;p&gt;</span><span class="tx">Your ESP32 is serving this page.</span><span class="kw">&lt;/p&gt;</span>  <span class="cm">&lt;!-- Paragraph --&gt;</span>
+<span class="kw">&lt;/body&gt;</span>
+
+<span class="kw">&lt;/html&gt;</span></pre>
+    </div>
+
+    <p>In C++, this becomes a string passed directly to <code>server.send()</code>. String literals next to each other are joined automatically, which keeps long HTML readable:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — HTML as a string</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="tx">server</span><span class="pn">.</span><span class="fn">send</span><span class="pn">(</span><span class="num">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span>
+  <span class="str">"&lt;!DOCTYPE html&gt;&lt;html&gt;"</span>
+  <span class="str">"&lt;head&gt;&lt;title&gt;WaveKit&lt;/title&gt;&lt;/head&gt;"</span>
+  <span class="str">"&lt;body&gt;&lt;h1&gt;Hello from WaveKit!&lt;/h1&gt;&lt;/body&gt;"</span>
+  <span class="str">"&lt;/html&gt;"</span>
+<span class="pn">);</span></pre>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">You don't need to know HTML</div>
+        <p>In Module 5 you'll copy a pre-made controller page — you won't write HTML from scratch. This section just explains what the ESP32 is actually sending so the sketch makes sense.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-http">
+        <input type="checkbox" class="done-check" id="check-http" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 6. THE ACCESS POINT SKETCH -->
+  <section id="code">
+    <h2><span class="num">6</span> The Access Point Sketch</h2>
+    <p>Here's the full sketch. Read every comment — it maps directly to what you learned in the last two sections.</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — WaveKit M4 Access Point Sketch</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="cm">// WaveKit M4 — WiFi Access Point + Web Server</span>
+
+<span class="kw">#include</span> <span class="str">&lt;WiFi.h&gt;</span>       <span class="cm">// Built into the ESP32 board package</span>
+<span class="kw">#include</span> <span class="str">&lt;WebServer.h&gt;</span>  <span class="cm">// Also built in — no extra install needed</span>
+
+<span class="kw">const char</span><span class="pn">*</span> <span class="cn">SSID</span>     <span class="pn">=</span> <span class="str">"WaveKit"</span><span class="pn">;</span>      <span class="cm">// WiFi network name</span>
+<span class="kw">const char</span><span class="pn">*</span> <span class="cn">PASSWORD</span> <span class="pn">=</span> <span class="str">"wavekit123"</span><span class="pn">;</span>   <span class="cm">// Must be 8+ characters</span>
+
+<span class="tx">WebServer</span> <span class="tx">server</span><span class="pn">(</span><span class="num">80</span><span class="pn">);</span>  <span class="cm">// Port 80 = standard HTTP</span>
+
+<span class="cm">// Called when a browser requests the root path "/"</span>
+<span class="kw">void</span> <span class="fn">handleRoot</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">send</span><span class="pn">(</span><span class="num">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span>
+    <span class="str">"&lt;!DOCTYPE html&gt;&lt;html&gt;"</span>
+    <span class="str">"&lt;head&gt;&lt;title&gt;WaveKit&lt;/title&gt;"</span>
+    <span class="str">"&lt;meta name='viewport' content='width=device-width,initial-scale=1'&gt;&lt;/head&gt;"</span>
+    <span class="str">"&lt;body style='font-family:sans-serif;text-align:center;padding:40px;background:#EEF2FF'&gt;"</span>
+    <span class="str">"&lt;h1&gt;Hello from WaveKit!&lt;/h1&gt;"</span>
+    <span class="str">"&lt;p&gt;Your ESP32 is serving this page over WiFi.&lt;/p&gt;"</span>
+    <span class="str">"&lt;/body&gt;&lt;/html&gt;"</span>
+  <span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">begin</span><span class="pn">(</span><span class="num">115200</span><span class="pn">);</span>
+
+  <span class="cm">// Start the Access Point</span>
+  <span class="tx">WiFi</span><span class="pn">.</span><span class="fn">softAP</span><span class="pn">(</span><span class="cn">SSID</span><span class="pn">,</span> <span class="cn">PASSWORD</span><span class="pn">);</span>
+
+  <span class="cm">// Print the IP address to Serial Monitor</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">print</span><span class="pn">(</span><span class="str">"WiFi network: "</span><span class="pn">);</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">println</span><span class="pn">(</span><span class="cn">SSID</span><span class="pn">);</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">print</span><span class="pn">(</span><span class="str">"Then open: http://"</span><span class="pn">);</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">println</span><span class="pn">(</span><span class="tx">WiFi</span><span class="pn">.</span><span class="fn">softAPIP</span><span class="pn">());</span>  <span class="cm">// Always 192.168.4.1</span>
+
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">on</span><span class="pn">(</span><span class="str">"/"</span><span class="pn">,</span> <span class="fn">handleRoot</span><span class="pn">);</span>  <span class="cm">// Register the "/" route</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">begin</span><span class="pn">();</span>               <span class="cm">// Start listening</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">handleClient</span><span class="pn">();</span>  <span class="cm">// Check for and respond to browser requests</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <h3>Key functions</h3>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Start the AP</div>
+        <div class="c-fn">WiFi.softAP(ssid, pass)</div>
+        <p>Creates the WiFi network. Devices can connect immediately after this line runs.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Get the IP</div>
+        <div class="c-fn">WiFi.softAPIP()</div>
+        <p>Returns the ESP32's IP address on its own network — always <code>192.168.4.1</code> by default.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Register a route</div>
+        <div class="c-fn">server.on("/", fn)</div>
+        <p>"When someone requests this path, call this function." Add more <code>server.on()</code> lines for extra pages.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Handle requests</div>
+        <div class="c-fn">server.handleClient()</div>
+        <p>Must be called in <code>loop()</code>. Without it, the server never processes any requests.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-code">
+        <input type="checkbox" class="done-check" id="check-code" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 7. THE SERIAL MONITOR -->
+  <section id="serial">
+    <h2><span class="num">7</span> The Serial Monitor</h2>
+    <p>The Serial Monitor is a text window in Arduino IDE that shows messages printed by your sketch. We use it to see the ESP32's IP address after upload.</p>
+
+    <h3>How to open it</h3>
+    <ol class="steps">
+      <li><span>Upload the sketch first (click →)</span></li>
+      <li><span>Go to <strong>Tools → Serial Monitor</strong> (or press <strong>Ctrl + Shift + M</strong> / <strong>Cmd + Shift + M</strong>)</span></li>
+      <li><span>Set the baud rate dropdown to <strong>115200</strong> — must match <code>Serial.begin(115200)</code> in the sketch</span></li>
+      <li><span>Press the <strong>EN</strong> (Enable/Reset) button on the ESP32 to restart it and replay the startup messages</span></li>
+    </ol>
+
+    <h3>What you'll see</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">Serial Monitor output</span>
+      </div>
+      <pre><span class="cm">WiFi network: WaveKit</span>
+<span class="cm">Then open: http://192.168.4.1</span></pre>
+    </div>
+
+    <!-- PLACEHOLDER: Screenshot of Serial Monitor -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Screenshot</span>
+      <span class="ph-label">Serial Monitor output</span>
+      <span class="ph-hint">Replace with: screenshot of Arduino IDE Serial Monitor showing "WiFi network: WaveKit" and "Then open: http://192.168.4.1"</span>
+    </div>
+
+    <h3>Connect your phone</h3>
+    <ol class="steps">
+      <li><span>On your phone: <strong>Settings → WiFi</strong></span></li>
+      <li><span>Find and tap <strong>WaveKit</strong> in the list</span></li>
+      <li><span>Enter password: <strong>wavekit123</strong></span></li>
+      <li><span>Open your phone's browser and type: <strong>http://192.168.4.1</strong></span></li>
+      <li><span>You should see "Hello from WaveKit!" — the ESP32 just served you a web page!</span></li>
+    </ol>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Phone says "No internet" — that's expected</div>
+        <p>WaveKit WiFi is a local network with no internet connection. Your phone may warn you. Choose "Stay connected" or "Use this network anyway" when prompted.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-serial">
+        <input type="checkbox" class="done-check" id="check-serial" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 8. CHECK YOUR KNOWLEDGE (MCQ) -->
+  <section id="typecheck">
+    <h2><span class="num">9</span> Check Your Knowledge</h2>
+    <p>Five questions about WiFi, servers, and HTTP. All five correct to continue.</p>
+    <div class="mcq-score-row">
+      <span class="mcq-score-chip" id="mcq-score-chip">0 / 5 correct</span>
+    </div>
+    <div class="mcq-list">
+
+      <!-- Q1 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q1 — What does <code>WiFi.softAP("WaveKit", "wavekit123")</code> do?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Connects the ESP32 to your home WiFi router</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> Creates a new WiFi network called "WaveKit"</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> Scans for nearby WiFi networks</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Changes the password on your router</button>
+        </div>
+        <div class="mcq-explanation"><strong>Creates a new WiFi network called "WaveKit"</strong> is correct. <code>softAP</code> = software Access Point. Instead of joining an existing network, the ESP32 creates one. Any device within range can connect to "WaveKit" directly — no router, no internet needed. Perfect for controlling a boat on a lake.</div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q2 — What port does <code>WebServer server(80)</code> listen on?</p>
+        <div class="mcq-context"><span class="tx">WebServer</span> <span class="tx">server</span><span class="pn">(</span><span class="mcq-blank">80</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Port 8080</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Port 443</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> Port 80</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Port 115200</button>
+        </div>
+        <div class="mcq-explanation"><strong>Port 80</strong> is correct. Port 80 is the default HTTP port. When you type <code>http://192.168.4.1</code> in a browser, the browser automatically tries port 80. If you used a different port (like 8080), you'd have to type <code>http://192.168.4.1:8080</code> explicitly.</div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q3 — What does HTTP status code <code>200</code> mean?</p>
+        <div class="mcq-context"><span class="tx">server</span><span class="pn">.</span><span class="fn">send</span><span class="pn">(</span><span class="mcq-blank">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span> <span class="tx">html</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Error — page not found</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Redirect to another page</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> OK — request succeeded</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Server is busy, try again</button>
+        </div>
+        <div class="mcq-explanation"><strong>OK — request succeeded</strong> is correct. 200 is "200 OK" — the most common HTTP response, meaning the server understood the request and is sending back the content. You might know "404 Not Found" from web browsing — that's what happens when the server can't find the page you asked for. Both are standard HTTP status codes.</div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q4 — Why does <code>server.handleClient()</code> need to be called in <code>loop()</code>?</p>
+        <div class="mcq-context"><span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">handleClient</span><span class="pn">();</span>  <span class="cm">// ← why?</span>
+<span class="pn">}</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> To restart the server if it crashes</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> To check for and respond to incoming browser requests</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> To broadcast the WiFi signal</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> To refresh the IP address</button>
+        </div>
+        <div class="mcq-explanation"><strong>To check for and respond to incoming browser requests</strong> is correct. Each call to <code>handleClient()</code> asks: "has any browser sent an HTTP request?" If yes, it calls the matching handler — like <code>handleRoot()</code>. Without it in <code>loop()</code>, the server sets up but never responds to anything. The page would just time out in the browser.</div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q5 — What is <code>192.168.4.1</code>?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> The MAC address of the ESP32</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> The URL of the Arduino IDE download page</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> The ESP32's IP address on its own Access Point network</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> The WiFi channel number</button>
+        </div>
+        <div class="mcq-explanation"><strong>The ESP32's IP address on its own AP network</strong> is correct. When the ESP32 creates a softAP, it automatically assigns itself the IP address <code>192.168.4.1</code> — this is the default and never changes. Any phone connected to "WaveKit" WiFi can reach the ESP32 by opening <code>http://192.168.4.1</code>.</div>
+      </div>
+
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="typecheck-done-label" for="check-typecheck">
+        <input type="checkbox" class="done-check" id="check-typecheck" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="typecheck-done-text">Answer all 5 correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 9. UPLOAD & TEST -->
+  <section id="upload">
+    <h2><span class="num">8</span> Upload &amp; Test</h2>
+    <p>Fill in the three blanks — the WiFi name, the HTTP port, and the root route — then copy, paste into Arduino IDE, and upload.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — fill in the blanks, then copy</span>
+        <button class="copy-btn" id="copy-upload-btn" onclick="copyFilledCode(this)" disabled>Copy</button>
+      </div>
+      <pre><span class="cm">// WaveKit M4 — WiFi Access Point + Web Server</span>
+
+<span class="kw">#include</span> <span class="str">&lt;WiFi.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;WebServer.h&gt;</span>
+
+<span class="kw">const char</span><span class="pn">*</span> <span class="cn">SSID</span>     <span class="pn">=</span> <span class="str">"</span><input class="code-blank" data-answer="WaveKit" placeholder="????" oninput="checkUploadBlanks()" size="8" aria-label="WiFi network name"><span class="str">"</span><span class="pn">;</span>      <span class="cm">// what's the WiFi network called?</span>
+<span class="kw">const char</span><span class="pn">*</span> <span class="cn">PASSWORD</span> <span class="pn">=</span> <span class="str">"wavekit123"</span><span class="pn">;</span>
+
+<span class="tx">WebServer</span> <span class="tx">server</span><span class="pn">(</span><input class="code-blank" data-answer="80" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="HTTP port"><span class="pn">);</span>  <span class="cm">// which port does HTTP use?</span>
+
+<span class="kw">void</span> <span class="fn">handleRoot</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">send</span><span class="pn">(</span><span class="num">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span>
+    <span class="str">"&lt;!DOCTYPE html&gt;&lt;html&gt;"</span>
+    <span class="str">"&lt;body style='font-family:sans-serif;text-align:center;padding:40px;background:#EEF2FF'&gt;"</span>
+    <span class="str">"&lt;h1&gt;Hello from WaveKit!&lt;/h1&gt;"</span>
+    <span class="str">"&lt;/body&gt;&lt;/html&gt;"</span>
+  <span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">begin</span><span class="pn">(</span><span class="num">115200</span><span class="pn">);</span>
+  <span class="tx">WiFi</span><span class="pn">.</span><span class="fn">softAP</span><span class="pn">(</span><span class="cn">SSID</span><span class="pn">,</span> <span class="cn">PASSWORD</span><span class="pn">);</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">print</span><span class="pn">(</span><span class="str">"Open: http://"</span><span class="pn">);</span>
+  <span class="tx">Serial</span><span class="pn">.</span><span class="fn">println</span><span class="pn">(</span><span class="tx">WiFi</span><span class="pn">.</span><span class="fn">softAPIP</span><span class="pn">());</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">on</span><span class="pn">(</span><span class="str">"<input class="code-blank" data-answer="/" placeholder="?" oninput="checkUploadBlanks()" size="1" aria-label="root route path">"</span><span class="pn">,</span> <span class="fn">handleRoot</span><span class="pn">);</span>  <span class="cm">// which path triggers handleRoot?</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">begin</span><span class="pn">();</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">handleClient</span><span class="pn">();</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <div id="upload-blanks-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">All blanks correct!</div>
+        <p>Click <strong>Copy</strong> &rarr; paste into Arduino IDE &rarr; upload. Then open Serial Monitor (115200 baud), press EN, and join the "WaveKit" WiFi on your phone.</p>
+      </div>
+    </div>
+
+    <ol class="steps" style="margin-top:16px">
+      <li><span>Verify board is set to <strong>Tools → Board → ESP32 Dev Module</strong> and correct port</span></li>
+      <li><span>Click the <strong>Upload button (→)</strong></span></li>
+      <li><span>Open <strong>Tools → Serial Monitor</strong>, set baud to <strong>115200</strong>, press <strong>EN</strong></span></li>
+      <li><span>Connect your phone to the <strong>"WaveKit"</strong> WiFi network</span></li>
+      <li><span>Open <strong>http://192.168.4.1</strong> in your phone's browser — you should see your page!</span></li>
+    </ol>
+
+    <!-- PLACEHOLDER: GIF of phone loading the WaveKit page -->
+    <div class="media-ph ph-gif ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="ph-type">GIF</span>
+      <span class="ph-label">Phone loading the WaveKit page</span>
+      <span class="ph-hint">Replace with: GIF showing phone joining "WaveKit" WiFi, opening browser, and loading the "Hello from WaveKit!" page</span>
+    </div>
+
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; "WaveKit" doesn&rsquo;t appear in phone's WiFi list?</summary>
+      <div class="stuck-body">
+        <p>Make sure the sketch uploaded successfully. Open Serial Monitor — if you see the IP address, the AP is running. Try moving your phone closer to the ESP32.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Browser shows "Site can&rsquo;t be reached"?</summary>
+      <div class="stuck-body">
+        <p>Make sure your phone is connected to "WaveKit" (not your home WiFi). Check the URL starts with <code>http://</code> not <code>https://</code>.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Serial Monitor shows garbage characters?</summary>
+      <div class="stuck-body">
+        <p>Set the baud rate to <strong>115200</strong> in the dropdown — it must match <code>Serial.begin(115200)</code> in the sketch.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Upload fails with "Connecting&hellip;"?</summary>
+      <div class="stuck-body">
+        <p>Hold <strong>BOOT</strong> while clicking Upload; release when dots appear in the console. Same fix as earlier modules.</p>
+      </div>
+    </details>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="upload-done-label" for="check-upload">
+        <input type="checkbox" class="done-check" id="check-upload" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="upload-done-text">Fill all blanks correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 11. CHALLENGE -->
+  <section id="challenge">
+    <h2><span class="num">10</span> Challenge — Customise the Page</h2>
+    <p>The current page is plain white text. Can you make it look like a real WaveKit controller panel? Try adding some style to the HTML string before the Module 5 page replaces it.</p>
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">The goal</div>
+        <p>Change the heading text. Add a line with your name. Change the background colour — try <code>background:#1a1a2e</code> and <code>color:white</code> in the <code>style</code> attribute for a dark theme.</p>
+      </div>
+    </div>
+    <p>Have a go at editing the HTML string yourself before revealing the example:</p>
+    <label class="honor-label" for="check-honor">
+      <input type="checkbox" class="honor-check" id="check-honor" onchange="onHonorCheck()">
+      I've tried editing the HTML string myself
+    </label>
+    <button class="reveal-btn" id="reveal-btn" onclick="revealSolution()">&#128161; Show example styled page</button>
+    <div class="solution-reveal" id="solution-reveal">
+      <div class="code-block" style="background:#fff">
+        <div class="code-header">
+          <span class="code-lang">C++ — hint: dark-themed page</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><span class="kw">void</span> <span class="fn">handleRoot</span><span class="pn">() {</span>
+  <span class="tx">server</span><span class="pn">.</span><span class="fn">send</span><span class="pn">(</span><span class="num">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span>
+    <span class="str">"&lt;!DOCTYPE html&gt;&lt;html&gt;"</span>
+    <span class="str">"&lt;head&gt;&lt;title&gt;WaveKit&lt;/title&gt;"</span>
+    <span class="str">"&lt;meta name='viewport' content='width=device-width,initial-scale=1'&gt;"</span>
+    <span class="str">"&lt;style&gt;body{font-family:sans-serif;background:#1a1a2e;color:#fff;"</span>
+    <span class="str">"text-align:center;padding:60px 20px}"</span>
+    <span class="str">"h1{font-size:2em;margin-bottom:12px}"</span>
+    <span class="str">"p{color:#94a3b8}&lt;/style&gt;&lt;/head&gt;"</span>
+    <span class="str">"&lt;body&gt;"</span>
+    <span class="str">"&lt;h1&gt;🚤 WaveKit&lt;/h1&gt;"</span>
+    <span class="str">"&lt;p&gt;Module 5 controller coming soon...&lt;/p&gt;"</span>
+    <span class="str">"&lt;/body&gt;&lt;/html&gt;"</span>
+  <span class="pn">);</span>
+<span class="pn">}</span></pre>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-challenge">
+        <input type="checkbox" class="done-check" id="check-challenge" onchange="onCheckChange(this)">
+        <span class="done-text">Challenge done!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 12. WHAT'S NEXT -->
+  <section id="next">
+    <h2><span class="num">11</span> What's Next</h2>
+    <div class="box ok">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Module 4 complete!</div>
+        <p>The ESP32 is now a web server. You understand HTTP request/response, access points, and how HTML travels over WiFi. That's the foundation of every web-connected device — from smart speakers to weather stations.</p>
+      </div>
+    </div>
+    <p>In <strong>Module 5</strong> you'll replace the static "Hello" page with a real boat controller. WebSockets will give your phone's buttons real-time control over the rudder and throttle you built in Modules 2 and 3.</p>
+    <a class="next-banner" href="WaveKit_M5_WebSocket.html">
+      <div>
+        <div class="nb-label">Up next — final module</div>
+        <div class="nb-title">Module 5 — WebSocket Boat Controller</div>
+        <div class="nb-desc">Drive the boat from your phone in real time with instant WebSocket commands</div>
+      </div>
+      <svg class="nb-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-next">
+        <input type="checkbox" class="done-check" id="check-next" onchange="onCheckChange(this)">
+        <span class="done-text">Module 4 complete!</span>
+      </label>
+      <button class="btn-next hidden" onclick="nextStep()">Next &#8594;</button>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+function copyCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+var DEBUG_MODE = false;
+var SECTIONS = ['learn','parts','wifi','server','http','code','serial','upload','typecheck','challenge','next'];
+var NAMES = {
+  learn:'What You\'ll Learn', parts:'What You Need', wifi:'Station vs. Access Point',
+  server:'What is a Web Server?', http:'HTML in a C++ String', code:'The Access Point Sketch',
+  serial:'The Serial Monitor', upload:'Upload & Test', typecheck:'Check Your Knowledge',
+  challenge:'Challenge', next:'What\'s Next'
+};
+var currentStep = 0, unlockedUpTo = 0;
+var dots = document.querySelectorAll('.step-dot');
+
+function updateDots() {
+  dots.forEach(function(dot, i) {
+    var sec = document.getElementById(SECTIONS[i]);
+    var check = sec && sec.querySelector('.done-check');
+    var isDone = check && check.checked, isActive = i === currentStep, isLocked = i > unlockedUpTo;
+    dot.classList.toggle('active', isActive);
+    dot.classList.toggle('done',   isDone && !isActive);
+    dot.classList.toggle('locked', isLocked);
+    dot.disabled = isLocked;
+    dot.textContent = (isDone && !isActive) ? '✓' : String(i + 1);
+  });
+}
+
+function showStep(n, force) {
+  force = force || false;
+  if (n < 0 || n >= SECTIONS.length) return;
+  if (!force && n > unlockedUpTo) return;
+  SECTIONS.forEach(function(id, i) { document.getElementById(id).classList.toggle('active', i === n); });
+  var lbl = document.getElementById('current-section-label');
+  if (lbl) lbl.textContent = NAMES[SECTIONS[n]];
+  var hero = document.querySelector('.hero');
+  if (hero) hero.style.display = (n === 0) ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateDots();
+}
+
+function nextStep() { showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 0) showStep(currentStep - 1, true); }
+
+function onCheckChange(checkbox) {
+  var sec = checkbox.closest('section'), lbl = checkbox.closest('.done-label');
+  var nextBtn = sec && sec.querySelector('.btn-next'), idx = SECTIONS.indexOf(sec.id);
+  lbl.classList.toggle('checked', checkbox.checked);
+  if (checkbox.checked) {
+    unlockedUpTo = Math.max(unlockedUpTo, idx + 1);
+    if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+  } else {
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  updateDots();
+}
+
+dots.forEach(function(dot, i) { dot.addEventListener('click', function(){ showStep(i); }); });
+
+/* ── MCQ ─────────────────────────────────────── */
+var mcqScore = 0;
+function selectOption(btn, isCorrect) {
+  var card = btn.closest('.mcq-card');
+  if (card.dataset.answered) return;
+  card.dataset.answered = 'true';
+  card.querySelectorAll('.mcq-opt').forEach(function(b) { b.disabled = true; });
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    var correct = card.querySelector('[data-correct="true"]');
+    if (correct) correct.classList.add('correct');
+  }
+  card.querySelector('.mcq-explanation').classList.add('show');
+  if (isCorrect) {
+    mcqScore++;
+    var chip = document.getElementById('mcq-score-chip');
+    chip.textContent = mcqScore + ' / 5 correct';
+    if (mcqScore === 5) {
+      chip.classList.add('all-ok');
+      var dc = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      var dtxt = document.getElementById('typecheck-done-text');
+      if (dc) dc.disabled = false;
+      if (dlbl) dlbl.classList.remove('locked-label');
+      if (dtxt) dtxt.textContent = 'All correct — continue!';
+    }
+  }
+}
+
+/* ── Upload blanks gate ──────────────────────── */
+function checkUploadBlanks() {
+  if (DEBUG_MODE) return;
+  var blanks = document.querySelectorAll('#upload .code-blank');
+  var allCorrect = blanks.length > 0;
+  blanks.forEach(function(inp) {
+    var val = inp.value.trim(), ans = inp.dataset.answer;
+    if (val === ans) { inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong'); }
+    else if (val !== '') { inp.classList.add('blank-wrong'); inp.classList.remove('blank-correct'); allCorrect = false; }
+    else { inp.classList.remove('blank-correct','blank-wrong'); allCorrect = false; }
+  });
+  var copyBtn = document.getElementById('copy-upload-btn');
+  var okBox   = document.getElementById('upload-blanks-ok');
+  var dc      = document.getElementById('check-upload');
+  var dlbl    = document.getElementById('upload-done-label');
+  var dtxt    = document.getElementById('upload-done-text');
+  if (allCorrect) {
+    if (copyBtn) copyBtn.disabled = false;
+    if (okBox)   okBox.style.display = 'flex';
+    if (dc)      dc.disabled = false;
+    if (dlbl)    dlbl.classList.remove('locked-label');
+    if (dtxt)    dtxt.textContent = 'Sketch filled in — upload it!';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('upload') + 1);
+    updateDots();
+  } else {
+    if (copyBtn) copyBtn.disabled = true;
+    if (okBox)   okBox.style.display = 'none';
+    if (dc && !dc.checked) dc.disabled = true;
+    if (dlbl && !dc.checked) dlbl.classList.add('locked-label');
+  }
+}
+
+function copyFilledCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  function getText(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeName === 'INPUT') return n.value;
+    var t = ''; n.childNodes.forEach(function(c){ t += getText(c); }); return t;
+  }
+  navigator.clipboard.writeText(getText(pre)).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Honor gate ──────────────────────────────── */
+function onHonorCheck() {
+  document.getElementById('reveal-btn').style.display = document.getElementById('check-honor').checked ? 'block' : 'none';
+}
+function revealSolution() {
+  document.getElementById('solution-reveal').style.display = 'block';
+  var btn = document.getElementById('reveal-btn');
+  btn.disabled = true; btn.textContent = '✓ Example shown below';
+}
+
+/* ── Debug toggle ────────────────────────────── */
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  var btn = document.getElementById('debug-toggle-btn');
+  var banner = document.getElementById('debug-banner');
+  if (DEBUG_MODE) {
+    unlockedUpTo = SECTIONS.length - 1;
+    document.querySelectorAll('.btn-next').forEach(function(b) { b.disabled = false; });
+    document.querySelectorAll('.done-check').forEach(function(c) { c.disabled = false; });
+    document.querySelectorAll('.done-label').forEach(function(l) { l.classList.remove('locked-label'); });
+    document.querySelectorAll('#upload .code-blank').forEach(function(inp) {
+      inp.value = inp.dataset.answer; inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong');
+    });
+    var cb = document.getElementById('copy-upload-btn');
+    if (cb) cb.disabled = false;
+    var ob = document.getElementById('upload-blanks-ok');
+    if (ob) ob.style.display = 'flex';
+    btn.textContent = '🔓 Debug: ON'; btn.classList.add('debug-on');
+    banner.style.display = 'block';
+  } else {
+    unlockedUpTo = 0;
+    SECTIONS.forEach(function(id, i) {
+      var sec = document.getElementById(id);
+      var doneCheck = sec && sec.querySelector('.done-check');
+      var nextBtn   = sec && sec.querySelector('.btn-next');
+      if (doneCheck && doneCheck.checked) {
+        unlockedUpTo = Math.max(unlockedUpTo, i + 1);
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+      } else {
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = true;
+      }
+    });
+    if (mcqScore < 5) {
+      var dc = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      if (dc && !dc.checked) dc.disabled = true;
+      if (dlbl && !document.getElementById('check-typecheck').checked) dlbl.classList.add('locked-label');
+    }
+    checkUploadBlanks();
+    btn.textContent = '🔒 Debug: OFF'; btn.classList.remove('debug-on');
+    banner.style.display = 'none';
+  }
+  updateDots();
+}
+
+/* ── Init ────────────────────────────────────── */
+updateDots();
+showStep(0, true);
+</script>
+
+<div id="debug-banner" class="debug-banner" role="status" aria-live="polite" style="display:none">
+  ⚠ DEBUG MODE — all sections unlocked. Click "Debug: ON" to restore normal student gating.
+</div>
+</body>
+</html>

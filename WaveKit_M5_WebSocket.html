@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WaveKit — M5: WebSocket Boat Controller</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #EEF2FF;
+  --surface:    #FFFFFF;
+  --surface2:   #F5F3FF;
+  --border:     #C7D2FE;
+  --primary:    #4F46E5;
+  --primary-l:  #818CF8;
+  --primary-d:  #3730A3;
+  --green:      #16A34A;
+  --green-l:    #22C55E;
+  --orange:     #D97706;
+  --red:        #DC2626;
+  --text:       #312E81;
+  --text-body:  #1E1B4B;
+  --text-muted: #6B7280;
+  --code-bg:    #F8F7FF;
+  --shadow:     0 6px 0 #C7D2FE, 0 8px 28px rgba(79,70,229,0.13);
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
+  --mono:       "JetBrains Mono", "Courier New", monospace;
+  --sans:       "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display:    "Fredoka", "Nunito", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text-body); line-height: 1.7; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Top nav ────────────────────────────────────────────── */
+.top-nav { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 2px solid var(--border); box-shadow: 0 2px 12px rgba(79,70,229,0.07); }
+.top-nav-inner { max-width: 800px; margin: 0 auto; padding: 0 24px; height: 58px; display: flex; align-items: center; gap: 16px; }
+.nav-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; text-decoration: none; }
+.brand-name { font-family: var(--display); font-size: 19px; font-weight: 600; color: var(--primary); letter-spacing: 0.2px; }
+.brand-chip { background: var(--bg); border: 1.5px solid var(--border); border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; color: var(--primary); font-family: var(--sans); white-space: nowrap; }
+.step-dots { display: flex; align-items: center; flex: 1; justify-content: center; gap: 0; }
+.step-dot { position: relative; width: 28px; height: 28px; border-radius: 50%; background: #E0E7FF; color: var(--primary-l); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--display); flex-shrink: 0; transition: background 0.2s, color 0.2s, box-shadow 0.2s; cursor: pointer; border: 2px solid transparent; }
+.step-dot::after { content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 8px; height: 2px; background: var(--border); }
+.step-dot:last-child::after { display: none; }
+.step-dot.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 2px 10px rgba(79,70,229,0.35); }
+.step-dot.done { background: #22C55E; color: #fff; border-color: #22C55E; }
+.step-dot:hover:not(.active):not(.locked) { background: #C7D2FE; color: var(--primary-d); }
+.step-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.step-dot.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-section { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; display: none; }
+
+/* ── Debug toggle button ────────────────────────────────── */
+.debug-toggle-btn { background: transparent; border: 1.5px solid var(--border); color: var(--text-muted); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; font-family: var(--sans); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: background 0.15s, border-color 0.15s, color 0.15s; letter-spacing: 0.3px; min-height: 30px; }
+.debug-toggle-btn:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+.debug-toggle-btn.debug-on { background: #FEF3C7; border-color: #FBBF24; color: #92400E; }
+.debug-toggle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── Page ───────────────────────────────────────────────── */
+.page { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero { background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 60%, #F0FDF4 100%); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 30px 28px; margin-bottom: 24px; position: relative; overflow: hidden; }
+.hero::before { content: ""; position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.hero::after { content: ""; position: absolute; bottom: -30px; left: 30px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.mod-badge { display: inline-block; background: var(--primary); color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; font-family: var(--sans); }
+.hero h1 { font-family: var(--display); font-size: 28px; font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 8px; }
+.hero-desc { color: #5B52B5; font-size: 14px; max-width: 500px; font-weight: 600; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.meta-chip { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; }
+.meta-chip .mlabel { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 1px; font-weight: 700; }
+.meta-chip .mvalue { color: var(--primary-d); font-weight: 700; }
+
+/* ── Section cards ──────────────────────────────────────── */
+section { background: var(--surface); border-radius: var(--radius-lg); padding: 28px 30px; margin-bottom: 20px; box-shadow: var(--shadow); scroll-margin-top: 76px; display: none; }
+section.active { display: block; }
+h2 { font-family: var(--display); font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 14px; font-weight: 600; flex-shrink: 0; box-shadow: 0 3px 0 var(--primary-d); }
+h3 { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--primary); margin: 22px 0 10px; display: flex; align-items: center; gap: 6px; }
+h3::before { content: ''; display: inline-block; width: 4px; height: 16px; background: var(--primary-l); border-radius: 2px; flex-shrink: 0; }
+p { margin-bottom: 12px; color: var(--text-body); }
+ul, ol { padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 6px; color: var(--text-body); }
+li::marker { color: var(--primary); font-weight: 700; }
+
+/* ── Inline code ────────────────────────────────────────── */
+code { font-family: var(--mono); background: #EEF2FF; border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.85em; color: var(--primary-d); }
+
+/* ── Code block ─────────────────────────────────────────── */
+.code-block { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-md); margin: 16px 0; overflow: hidden; box-shadow: 0 2px 0 #C7D2FE; }
+.code-block .code-header { background: #EEF2FF; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid var(--border); }
+.code-block .code-lang { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); font-weight: 700; font-family: var(--mono); }
+.copy-btn { background: var(--surface); border: 1.5px solid var(--border); color: var(--primary); border-radius: 8px; padding: 3px 12px; font-size: 11px; cursor: pointer; font-family: var(--sans); font-weight: 700; transition: background 0.15s; }
+.copy-btn:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.copy-btn.copied { color: var(--green); border-color: var(--green-l); background: #F0FDF4; }
+.code-block pre { padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.65; }
+.kw  { color: #7C3AED; } .fn  { color: #2563EB; } .cm  { color: #9CA3AF; font-style: italic; }
+.str { color: #16A34A; } .num { color: #D97706; } .cn  { color: #DC2626; }
+.pn  { color: #374151; } .tx  { color: #1F2937; }
+
+/* ── Info boxes ─────────────────────────────────────────── */
+.box { border-radius: var(--radius-md); padding: 14px 18px; margin: 16px 0; border-left: 5px solid; display: flex; gap: 12px; align-items: flex-start; }
+.box-icon { flex-shrink: 0; margin-top: 2px; }
+.box-body { flex: 1; min-width: 0; }
+.box .box-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; font-family: var(--sans); }
+.box.tip  { background: #EEF2FF; border-color: var(--primary); }
+.box.tip  .box-title { color: var(--primary); }
+.box.tip  .box-icon  { color: var(--primary); }
+.box.err  { background: #FFF1F2; border-color: #F87171; }
+.box.err  .box-title { color: #B91C1C; }
+.box.err  .box-icon  { color: #EF4444; }
+.box.ok   { background: #F0FDF4; border-color: var(--green-l); }
+.box.ok   .box-title { color: var(--green); }
+.box.ok   .box-icon  { color: var(--green-l); }
+.box.warn { background: #FFFBEB; border-color: #FBBF24; }
+.box.warn .box-title { color: #92400E; }
+.box.warn .box-icon  { color: #F59E0B; }
+.box p    { margin: 0; font-size: 14px; color: var(--text-body); }
+
+/* ── Table ──────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 12px; font-family: var(--sans); }
+td { padding: 9px 14px; border-bottom: 1px solid #E0E7FF; vertical-align: top; color: var(--text-body); }
+tr:nth-child(odd) td  { background: #fff; }
+tr:nth-child(even) td { background: var(--surface2); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Step list ──────────────────────────────────────────── */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li { counter-increment: step; display: flex; gap: 14px; margin-bottom: 0; align-items: flex-start; position: relative; padding-bottom: 18px; }
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before { content: counter(step); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 13px; font-weight: 700; font-family: var(--display); flex-shrink: 0; margin-top: 1px; box-shadow: 0 3px 0 var(--primary-d); position: relative; z-index: 1; }
+.steps li::after { content: ''; position: absolute; left: 14px; top: 32px; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px); }
+.steps li:last-child::after { display: none; }
+.steps li > span { padding-top: 4px; }
+
+/* ── Learn grid ─────────────────────────────────────────── */
+.learn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.learn-item { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; color: var(--text-body); font-weight: 600; }
+.learn-item svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* ── Concept cards ──────────────────────────────────────── */
+.concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.concept-card { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; box-shadow: 0 3px 0 var(--border); }
+.concept-card .c-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-l); margin-bottom: 5px; font-weight: 700; }
+.concept-card .c-fn { font-family: var(--mono); font-size: 12.5px; color: var(--primary-d); font-weight: 500; margin-bottom: 8px; word-break: break-all; }
+.concept-card p { font-size: 13px; margin: 0; color: var(--text-muted); }
+
+/* ── WS flow diagram ────────────────────────────────────── */
+.ws-flow { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; margin: 16px 0; }
+.ws-nodes { display: flex; align-items: flex-start; gap: 0; }
+.ws-node { background: #fff; border: 2px solid var(--border); border-radius: var(--radius-md); padding: 14px 18px; text-align: center; flex-shrink: 0; min-width: 110px; }
+.ws-node .ws-icon { font-size: 26px; display: block; margin-bottom: 4px; }
+.ws-node .ws-label { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text); }
+.ws-node .ws-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.ws-channel { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 0 14px; }
+.ws-msg { font-size: 11px; font-family: var(--mono); display: flex; align-items: center; gap: 6px; }
+.ws-msg-text { background: #EEF2FF; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex: 1; text-align: center; }
+.ws-msg-arrow { color: var(--primary); font-size: 14px; font-family: sans-serif; }
+.ws-open { color: var(--green); margin-bottom: 4px; font-size: 11px; text-align: center; font-weight: 700; }
+
+/* ── Install / library checklist ────────────────────────── */
+.install-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.install-item { display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.15s, background 0.15s; }
+.install-item.item-done { background: #F0FDF4; border-color: var(--green-l); }
+.install-item input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; margin-top: 1px; border-radius: 6px; }
+.install-item label { font-size: 14px; font-weight: 600; color: var(--text-body); cursor: pointer; line-height: 1.5; transition: color 0.2s; }
+.install-item.item-done label { color: var(--green); text-decoration: line-through; }
+
+/* ── Media placeholders ─────────────────────────────────── */
+.media-ph { border: 2px dashed var(--border); border-radius: var(--radius-md); background: #F5F3FF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 20px; text-align: center; margin: 14px 0; }
+.media-ph.ph-sm { min-height: 100px; } .media-ph.ph-md { min-height: 160px; } .media-ph.ph-lg { min-height: 220px; }
+.media-ph .ph-icon { color: var(--primary-l); opacity: 0.7; }
+.media-ph .ph-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--primary); font-family: var(--sans); }
+.media-ph .ph-label { font-size: 13px; font-weight: 700; color: var(--primary-d); font-family: var(--sans); }
+.media-ph .ph-hint { font-size: 11px; color: var(--text-muted); font-style: italic; max-width: 280px; line-height: 1.4; }
+.media-ph.ph-gif { border-color: var(--green-l); background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); }
+.media-ph.ph-gif .ph-type { color: var(--green); } .media-ph.ph-gif .ph-label { color: #15803D; } .media-ph.ph-gif .ph-icon { color: var(--green-l); }
+
+/* ── Achievement ribbon ─────────────────────────────────── */
+.achievement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+.achievement-item { background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.achievement-item .ach-num { width: 36px; height: 36px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 15px; font-weight: 700; flex-shrink: 0; box-shadow: 0 3px 0 var(--primary-d); }
+.achievement-item .ach-body .ach-title { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text); }
+.achievement-item .ach-body .ach-sub { font-size: 12px; color: var(--text-muted); }
+
+/* ── MCQ ────────────────────────────────────────────────── */
+.mcq-list { display: flex; flex-direction: column; gap: 22px; margin: 20px 0; }
+.mcq-card { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; }
+.mcq-q { font-weight: 700; color: var(--text); margin-bottom: 8px; font-size: 15px; }
+.mcq-context { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; margin-bottom: 14px; overflow-x: auto; }
+.mcq-options { display: flex; flex-direction: column; gap: 8px; }
+.mcq-opt { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; color: var(--text-body); transition: border-color 0.15s, background 0.15s; display: flex; align-items: center; gap: 12px; width: 100%; }
+.mcq-opt:hover:not(:disabled) { border-color: var(--primary-l); background: #EEF2FF; }
+.mcq-opt.correct { border-color: var(--green); background: #F0FDF4; color: var(--green); }
+.mcq-opt.wrong   { border-color: var(--red);   background: #FFF1F2; color: var(--red); }
+.mcq-opt:disabled { cursor: default; }
+.mcq-badge { width: 24px; height: 24px; border-radius: 50%; background: var(--bg); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; border: 1.5px solid var(--border); }
+.mcq-opt.correct .mcq-badge { background: var(--green); color: #fff; border-color: var(--green); }
+.mcq-opt.wrong   .mcq-badge { background: var(--red);   color: #fff; border-color: var(--red); }
+.mcq-explanation { margin-top: 14px; padding: 12px 16px; background: #F0FDF4; border-left: 4px solid var(--green-l); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 14px; color: var(--text-body); display: none; line-height: 1.6; }
+.mcq-explanation.show { display: block; }
+.mcq-score-row { margin-bottom: 4px; }
+.mcq-score-chip { background: var(--bg); border: 2px solid var(--border); border-radius: 20px; padding: 4px 18px; font-size: 13px; font-weight: 700; color: var(--primary); display: inline-block; }
+.mcq-score-chip.all-ok { border-color: var(--green); color: var(--green); background: #F0FDF4; }
+
+/* ── Section footer ─────────────────────────────────────── */
+.section-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 20px; border-top: 2px dashed var(--border); gap: 12px; }
+.done-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 16px; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; flex: 1; max-width: 300px; transition: background 0.15s, border-color 0.15s; min-height: 44px; user-select: none; }
+.done-label:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.done-label.checked { background: #F0FDF4; border-color: var(--green-l); }
+.done-label.locked-label { opacity: 0.6; cursor: not-allowed; }
+.done-label.locked-label:hover { background: var(--surface2); border-color: var(--border); }
+.done-check { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.done-text { font-size: 13px; font-weight: 700; color: var(--text-muted); font-family: var(--sans); }
+.done-label.checked .done-text { color: var(--green); }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; border: 2px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); padding: 11px 24px; font-size: 15px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: background 0.15s, transform 0.15s, box-shadow 0.15s; box-shadow: 0 5px 0 var(--primary-d), 0 8px 20px rgba(79,70,229,0.18); min-height: 44px; transform: translateY(0); }
+.btn-next:hover:not(:disabled) { background: var(--primary-d); transform: translateY(-2px); box-shadow: 0 7px 0 var(--primary-d), 0 10px 24px rgba(79,70,229,0.22); }
+.btn-next:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--primary-d); }
+.btn-next:disabled { background: #C7D2FE; color: #818CF8; box-shadow: 0 4px 0 #A5B4FC; cursor: not-allowed; transform: none; }
+.btn-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--text-muted); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 10px 20px; font-size: 14px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s; box-shadow: 0 3px 0 var(--border); min-height: 44px; }
+.btn-back:hover { border-color: var(--primary-l); color: var(--primary); transform: translateY(-1px); }
+.btn-back:active { transform: translateY(2px); }
+.btn-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back.hidden, .btn-next.hidden { visibility: hidden; pointer-events: none; }
+
+/* ── Honor / reveal ─────────────────────────────────────── */
+.honor-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 11px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 12px; margin-top: 16px; font-size: 14px; font-weight: 600; color: var(--text-muted); user-select: none; transition: background 0.15s; }
+.honor-label:hover { background: #EEF2FF; }
+.honor-check { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.reveal-btn { display: none; width: 100%; margin-top: 10px; padding: 12px 18px; background: var(--surface2); border: 1.5px dashed var(--primary-l); border-radius: 12px; color: var(--primary); font-weight: 700; font-family: var(--display); font-size: 14px; cursor: pointer; text-align: left; transition: background 0.15s; }
+.reveal-btn:hover { background: #EEF2FF; }
+.solution-reveal { display: none; margin-top: 14px; }
+
+/* ── Debug banner ───────────────────────────────────────── */
+.debug-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #1E1B4B; color: #A5B4FC; text-align: center; font-size: 11px; font-weight: 700; font-family: var(--sans); padding: 5px; letter-spacing: 1px; z-index: 100; }
+
+/* ── Code fill-in blanks ────────────────────────────────── */
+.code-blank { font-family: var(--mono); font-size: 13px; background: #FEF3C7; border: 2px solid #FBBF24; border-radius: 6px; padding: 2px 6px; color: #92400E; min-width: 36px; text-align: center; outline: none; vertical-align: middle; transition: border-color 0.15s, background 0.15s; }
+.code-blank:focus { border-color: var(--primary); background: #EEF2FF; color: var(--primary-d); }
+.code-blank.blank-correct { background: #F0FDF4; border-color: var(--green-l); color: var(--green); }
+.code-blank.blank-wrong   { background: #FFF1F2; border-color: #F87171; color: var(--red); }
+
+/* ── Inline stuck collapsibles ──────────────────────────── */
+.stuck-details { margin: 8px 0; border-radius: var(--radius-sm); border: 1.5px solid var(--orange); background: #FFFBEB; overflow: hidden; }
+.stuck-summary { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); font-family: var(--sans); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.stuck-summary::-webkit-details-marker { display: none; }
+.stuck-summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+details[open] .stuck-summary::before { transform: rotate(90deg); }
+.stuck-body { padding: 4px 16px 14px; font-size: 13px; color: var(--text-body); border-top: 1px solid #FDE68A; }
+.stuck-body p { margin: 8px 0 0; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-l); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 60px; }
+  section { padding: 22px 18px; }
+  .hero { padding: 22px 18px; }
+  .hero h1 { font-size: 22px; }
+  .learn-grid, .concept-grid, .achievement-grid { grid-template-columns: 1fr; }
+  h2 { font-size: 17px; }
+  .step-dot { width: 22px; height: 22px; font-size: 9px; }
+  .step-dot::after { width: 5px; }
+  .brand-chip { display: none; }
+  .nav-section { display: block; }
+  .top-nav-inner { gap: 10px; }
+  .btn-next, .btn-back { padding: 10px 14px; font-size: 13px; }
+  .done-label { max-width: none; }
+  .section-footer { flex-wrap: wrap; }
+  .ws-nodes { flex-direction: column; }
+}
+@media (max-width: 420px) {
+  .step-dot { width: 18px; height: 18px; font-size: 8px; }
+  .step-dot::after { width: 3px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-name">WaveKit</span>
+      <span class="brand-chip">M5 of 5</span>
+    </a>
+    <nav class="step-dots" aria-label="Module sections">
+      <button class="step-dot active" data-index="0"  title="What You'll Learn">1</button>
+      <button class="step-dot locked"  data-index="1"  title="What You Need">2</button>
+      <button class="step-dot locked"  data-index="2"  title="What is a WebSocket?">3</button>
+      <button class="step-dot locked"  data-index="3"  title="The Command Protocol">4</button>
+      <button class="step-dot locked"  data-index="4"  title="Install the Library">5</button>
+      <button class="step-dot locked"  data-index="5"  title="The Boat Sketch">6</button>
+      <button class="step-dot locked"  data-index="6"  title="Upload &amp; Test">7</button>
+      <button class="step-dot locked"  data-index="7"  title="Calibrate &amp; Tune">8</button>
+      <button class="step-dot locked"  data-index="8"  title="Check Your Knowledge">9</button>
+      <button class="step-dot locked"  data-index="9"  title="Challenge">10</button>
+      <button class="step-dot locked"  data-index="10" title="WaveKit Complete!">11</button>
+    </nav>
+    <span class="nav-section" id="current-section-label">What You'll Learn</span>
+    <button class="debug-toggle-btn" id="debug-toggle-btn" onclick="toggleDebug()" aria-label="Toggle debug mode" title="Unlock all sections for testing">&#128274; Debug</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="mod-badge">Module 5 of 5 &mdash; Final</div>
+    <h1>WebSocket Boat Controller</h1>
+    <p class="hero-desc">Connect everything. Build the controller page. Drive the boat from your phone in real time.</p>
+    <div class="meta-chips">
+      <div class="meta-chip"><span class="mlabel">Board</span><span class="mvalue">ESP32 DevKitC V4</span></div>
+      <div class="meta-chip"><span class="mlabel">Library</span><span class="mvalue">WebSockets by Markus Sattler</span></div>
+      <div class="meta-chip"><span class="mlabel">Builds on</span><span class="mvalue">M2 Servo + M3 Motor + M4 WiFi</span></div>
+      <div class="meta-chip"><span class="mlabel">Time</span><span class="mvalue">45&ndash;60 min</span></div>
+    </div>
+  </div>
+
+  <!-- 1. WHAT YOU'LL LEARN -->
+  <section id="learn">
+    <h2><span class="num">1</span> What You&rsquo;ll Learn</h2>
+    <p>This is the final module. You&rsquo;re going to take everything you built across Modules 1&ndash;4 and wire it together into one program that turns the ESP32 into a real RC boat controller.</p>
+    <div class="learn-grid">
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        How WebSockets work — and why HTTP is too slow for real-time control
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        How to store a full HTML page inside your C++ sketch using <code>PROGMEM</code>
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        How to handle a command from the phone and move real hardware
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        How to run two servers (HTTP + WebSocket) in one <code>loop()</code>
+      </div>
+    </div>
+    <div class="box ok" style="margin-top:18px">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">You already know most of this</div>
+        <p>The servo is from M2. The DC motor + transistor circuit is from M3. The WiFi AP and web server are from M4. This module adds WebSockets and wires all four together. None of those pieces are new &mdash; only the glue is.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back hidden" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-learn">
+        <input type="checkbox" class="done-check" id="check-learn" onchange="onCheckChange(this)">
+        <span class="done-text">Got it &mdash; let&rsquo;s go!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 2. WHAT YOU NEED -->
+  <section id="parts">
+    <h2><span class="num">2</span> What You Need</h2>
+    <p>Everything from the previous modules plus both pieces of hardware wired and ready:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>From</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 DevKitC V4</td><td>M1</td><td>Flashed successfully in M1&ndash;M4</td></tr>
+          <tr><td>USB-A to Micro-USB cable</td><td>M1</td><td>For uploading the sketch</td></tr>
+          <tr><td>SG90 servo motor</td><td>M2</td><td>Wired to GPIO 13</td></tr>
+          <tr><td>5V DC motor + transistor circuit</td><td>M3</td><td>GPIO 26 → 1 kΩ → transistor Base; motor on 5V/GND</td></tr>
+          <tr><td>Jumper wires</td><td>M2 &amp; M3</td><td>Already in place if you haven&rsquo;t removed them</td></tr>
+          <tr><td>Phone or laptop with WiFi</td><td>M4</td><td>To open the controller page</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- PLACEHOLDER: Photo of all assembled components -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">All components ready for M5</span>
+      <span class="ph-hint">Replace with: photo showing ESP32, servo, DC motor + breadboard transistor circuit, USB cable, and phone laid out together</span>
+    </div>
+    <div class="box warn">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="box-body">
+        <div class="box-title">No propeller for bench testing</div>
+        <p>Confirm the motor spins and the servo responds on the bench before attaching the propeller. The motor is powered from the ESP32's 5V pin when connected by USB — no separate battery needed.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-parts">
+        <input type="checkbox" class="done-check" id="check-parts" onchange="onCheckChange(this)">
+        <span class="done-text">Everything&rsquo;s in front of me!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 3. WHAT IS A WEBSOCKET? -->
+  <section id="websocket">
+    <h2><span class="num">3</span> What is a WebSocket?</h2>
+    <p>In Module 4 you used <strong>HTTP</strong> &mdash; your phone sends a request, the ESP32 replies with HTML, and the connection closes. That works fine for loading a page, but it&rsquo;s terrible for a boat controller.</p>
+    <p>Imagine pressing Forward on your phone. With HTTP, your phone would have to <em>open a new connection, send a request, wait for a reply</em> &mdash; for every single button tap. By the time the request arrives, you&rsquo;ve already let go of the button.</p>
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">The phone call analogy</div>
+        <p>HTTP is like sending a letter &mdash; you write it, post it, wait for a reply. <strong>WebSocket is like a phone call</strong> that stays open. Once connected, either side can speak at any moment, with no delay.</p>
+      </div>
+    </div>
+
+    <h3>How it works</h3>
+    <div class="ws-flow" role="img" aria-label="WebSocket flow diagram">
+      <div class="ws-nodes">
+        <div class="ws-node">
+          <span class="ws-icon">&#128241;</span>
+          <div class="ws-label">Your phone</div>
+          <div class="ws-sub">Browser</div>
+        </div>
+        <div class="ws-channel">
+          <div class="ws-open">&#8212; connection stays open &#8212;</div>
+          <div class="ws-msg">
+            <span class="ws-msg-text">&#8594; &ldquo;F&rdquo; (forward)</span>
+          </div>
+          <div class="ws-msg">
+            <span class="ws-msg-text">&#8594; &ldquo;S&rdquo; (stop)</span>
+          </div>
+          <div class="ws-msg">
+            <span class="ws-msg-text">&#8594; &ldquo;L&rdquo; (left)</span>
+          </div>
+        </div>
+        <div class="ws-node">
+          <span class="ws-icon">&#9875;</span>
+          <div class="ws-label">ESP32</div>
+          <div class="ws-sub">Port 81</div>
+        </div>
+      </div>
+    </div>
+
+    <p>The phone loads the controller page over HTTP (port 80) just once. Then it opens a WebSocket on <strong>port 81</strong> and the connection stays open. Every button press sends a single character &mdash; the ESP32 receives it instantly and moves the hardware.</p>
+
+    <h3>Two servers, one ESP32</h3>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">HTTP Server</div>
+        <div class="c-fn">httpServer(80)</div>
+        <p>Serves the controller HTML page once when the browser first connects. Used in M4.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">WebSocket Server</div>
+        <div class="c-fn">wsServer(81)</div>
+        <p>Handles real-time button commands after the page loads. New in M5.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-websocket">
+        <input type="checkbox" class="done-check" id="check-websocket" onchange="onCheckChange(this)">
+        <span class="done-text">Makes sense!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 4. THE COMMAND PROTOCOL -->
+  <section id="protocol">
+    <h2><span class="num">4</span> The Command Protocol</h2>
+    <p>When the phone sends a WebSocket message, the ESP32 has to know what it means. We keep it simple: <strong>one character per command</strong>. No JSON, no headers, no parsing &mdash; just a single letter.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Character</th><th>Meaning</th><th>Hardware action</th></tr></thead>
+        <tbody>
+          <tr><td><code>F</code></td><td>Forward</td><td>Motor &rarr; <code>ledcWrite(0, 128)</code></td></tr>
+          <tr><td><code>S</code></td><td>Stop motor</td><td>Motor &rarr; <code>ledcWrite(0, 0)</code></td></tr>
+          <tr><td><code>L</code></td><td>Rudder left</td><td>Servo &rarr; <code>write(45)</code></td></tr>
+          <tr><td><code>R</code></td><td>Rudder right</td><td>Servo &rarr; <code>write(135)</code></td></tr>
+          <tr><td><code>C</code></td><td>Centre rudder</td><td>Servo &rarr; <code>write(90)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Why single characters?</div>
+        <p>The ESP32 receives these as raw bytes. A single ASCII character is 1 byte &mdash; there&rsquo;s nothing smaller. It also makes the <code>switch</code> statement in C++ trivially simple: <code>case 'F':</code> no string comparison needed.</p>
+      </div>
+    </div>
+    <h3>Button behaviour</h3>
+    <p>The rudder and motor use <strong>press-and-hold</strong> semantics:</p>
+    <ul>
+      <li><strong>Left button pressed</strong> &rarr; send <code>L</code></li>
+      <li><strong>Left button released</strong> &rarr; send <code>C</code> (rudder centres automatically)</li>
+      <li><strong>Forward button pressed</strong> &rarr; send <code>F</code></li>
+      <li><strong>Forward button released</strong> &rarr; send <code>S</code> (motor stops automatically)</li>
+    </ul>
+    <p>This means you don&rsquo;t need to separately tap &ldquo;stop&rdquo; &mdash; the boat does it the moment your thumb lifts off the screen.</p>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-protocol">
+        <input type="checkbox" class="done-check" id="check-protocol" onchange="onCheckChange(this)">
+        <span class="done-text">Commands understood!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 5. INSTALL THE LIBRARY -->
+  <section id="library">
+    <h2><span class="num">5</span> Install the Library</h2>
+    <p>The <code>WiFi.h</code> and <code>WebServer.h</code> libraries are already bundled with the ESP32 board package you installed in Module 1. But <code>WebSocketsServer.h</code> is a <strong>third-party library</strong> &mdash; you need to install it once.</p>
+    <p>Tick each step as you complete it. The Next button unlocks when all five are done.</p>
+
+    <div class="install-list">
+      <div class="install-item" id="lib-item-1">
+        <input type="checkbox" id="check-lib-1" onchange="checkLibraryProgress()">
+        <label for="check-lib-1">Open Arduino IDE. Go to <strong>Tools &rarr; Manage Libraries&hellip;</strong> (or press <strong>Ctrl&thinsp;+&thinsp;Shift&thinsp;+&thinsp;I</strong>)</label>
+      </div>
+      <div class="install-item" id="lib-item-2">
+        <input type="checkbox" id="check-lib-2" onchange="checkLibraryProgress()">
+        <label for="check-lib-2">In the search bar at the top, type: <code>WebSockets</code></label>
+      </div>
+      <div class="install-item" id="lib-item-3">
+        <input type="checkbox" id="check-lib-3" onchange="checkLibraryProgress()">
+        <label for="check-lib-3">Find <strong>&ldquo;WebSockets by Markus Sattler&rdquo;</strong> in the results and click it</label>
+      </div>
+      <div class="install-item" id="lib-item-4">
+        <input type="checkbox" id="check-lib-4" onchange="checkLibraryProgress()">
+        <label for="check-lib-4">Click <strong>Install</strong>. If asked about dependencies, click <strong>&ldquo;Install All&rdquo;</strong></label>
+      </div>
+      <div class="install-item" id="lib-item-5">
+        <input type="checkbox" id="check-lib-5" onchange="checkLibraryProgress()">
+        <label for="check-lib-5">Wait for &ldquo;<em>Installed</em>&rdquo; to appear in the output, then close the Library Manager</label>
+      </div>
+    </div>
+
+    <div id="library-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Library installed!</div>
+        <p>You can now use <code>#include &lt;WebSocketsServer.h&gt;</code> in any ESP32 sketch.</p>
+      </div>
+    </div>
+
+    <div class="box tip" style="margin-top:16px">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Can&rsquo;t find it?</div>
+        <p>Make sure you searched <code>WebSockets</code> (plural). The library author is <strong>Markus Sattler</strong>. If you see multiple results, look for the one with the most downloads. You need version 2.3.0 or higher.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <div style="flex:1"></div>
+      <button class="btn-next" id="btn-next-library" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 6. THE BOAT SKETCH -->
+  <section id="code">
+    <h2><span class="num">6</span> The Boat Sketch</h2>
+    <p>This is the complete sketch. It combines everything from M2, M3, and M4 into one program. Read through each section &mdash; nothing here should be a surprise.</p>
+
+    <h3>Part 1 &mdash; Libraries and pin setup</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C++ — libraries &amp; globals</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="kw">#include</span> <span class="str">&lt;WiFi.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;WebServer.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;WebSocketsServer.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;Servo.h&gt;</span>
+
+<span class="cm">// ── WiFi credentials ─────────────────────────────</span>
+<span class="kw">const</span> <span class="kw">char</span><span class="pn">*</span> SSID     <span class="pn">=</span> <span class="str">"WaveKit"</span><span class="pn">;</span>
+<span class="kw">const</span> <span class="kw">char</span><span class="pn">*</span> PASSWORD <span class="pn">=</span> <span class="str">"wavekit123"</span><span class="pn">;</span>
+
+<span class="cm">// ── Servers ──────────────────────────────────────</span>
+<span class="fn">WebServer</span>        httpServer<span class="pn">(</span><span class="num">80</span><span class="pn">);</span>   <span class="cm">// controller page</span>
+<span class="fn">WebSocketsServer</span> wsServer<span class="pn">(</span><span class="num">81</span><span class="pn">);</span>    <span class="cm">// button commands</span>
+
+<span class="cm">// ── Hardware ──────────────────────────────────────</span>
+<span class="fn">Servo</span> rudder<span class="pn">;</span>            <span class="cm">// rudder servo → GPIO 13  (from M2)</span>
+<span class="cm">// DC motor uses LEDC (no Servo object needed)   (from M3)</span>
+
+<span class="kw">const</span> <span class="kw">int</span> RUDDER_PIN <span class="pn">=</span> <span class="num">13</span><span class="pn">;</span>   <span class="cm">// servo signal wire</span>
+<span class="kw">const</span> <span class="kw">int</span> MOTOR_PIN  <span class="pn">=</span> <span class="num">26</span><span class="pn">;</span>   <span class="cm">// transistor Base (via 1 kΩ)</span></pre>
+    </div>
+
+    <h3>Part 2 &mdash; Controller HTML page in PROGMEM</h3>
+    <p><strong>PROGMEM</strong> (Program Memory) tells the compiler to put this large string in the ESP32&rsquo;s flash memory (4 MB) instead of RAM (320 KB). Without it, a long HTML string could use up all available RAM before your program even starts.</p>
+    <p>The <code>R"rawliteral(...)rawliteral"</code> syntax is a C++ <em>raw string literal</em>. Anything between the markers is treated as plain text &mdash; no need to escape quotes or angle brackets.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C++ — HTML controller page (PROGMEM)</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="kw">const</span> <span class="kw">char</span> CONTROLLER_HTML<span class="pn">[]</span> <span class="cn">PROGMEM</span> <span class="pn">=</span> <span class="str">R"rawliteral(
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;WaveKit&lt;/title&gt;
+  &lt;meta name="viewport" content="width=device-width,initial-scale=1"&gt;
+  &lt;style&gt;
+    body { font-family:sans-serif; background:#1a1a2e; color:#fff;
+           text-align:center; padding:40px 20px; user-select:none; }
+    h1   { font-size:1.8em; margin-bottom:8px; }
+    p    { color:#94a3b8; margin-bottom:30px; font-size:0.9em; }
+    .btn { display:inline-block; background:#4F46E5; color:#fff;
+           border:none; border-radius:16px; padding:22px 32px;
+           font-size:1.1em; font-weight:700; cursor:pointer;
+           margin:8px; min-width:90px; touch-action:none; }
+    .btn:active { background:#3730A3; transform:scale(0.95); }
+    .row { display:flex; justify-content:center; align-items:center;
+           gap:12px; margin:6px 0; }
+    #status { color:#64748b; font-size:0.8em; margin-top:28px; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;WaveKit&lt;/h1&gt;
+  &lt;p&gt;Hold to steer and drive&lt;/p&gt;
+  &lt;div class="row"&gt;
+    &lt;button class="btn"
+      onpointerdown="send('F')" onpointerup="send('S')"
+      onpointercancel="send('S')"&gt;&#9650;&lt;br&gt;Forward&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="row"&gt;
+    &lt;button class="btn"
+      onpointerdown="send('L')" onpointerup="send('C')"
+      onpointercancel="send('C')"&gt;&#9664;&lt;br&gt;Left&lt;/button&gt;
+    &lt;button class="btn" onclick="send('S')"&gt;&#9632;&lt;br&gt;Stop&lt;/button&gt;
+    &lt;button class="btn"
+      onpointerdown="send('R')" onpointerup="send('C')"
+      onpointercancel="send('C')"&gt;&#9654;&lt;br&gt;Right&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div id="status"&gt;Connecting&hellip;&lt;/div&gt;
+  &lt;script&gt;
+    var ws = new WebSocket('ws://' + location.hostname + ':81/');
+    ws.onopen  = function() {
+      document.getElementById('status').textContent = 'Connected!';
+    };
+    ws.onclose = function() {
+      document.getElementById('status').textContent =
+        'Disconnected. Reload to reconnect.';
+    };
+    function send(cmd) {
+      if (ws.readyState === 1) ws.send(cmd);
+    }
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+)rawliteral"</span><span class="pn">;</span></pre>
+    </div>
+
+    <h3>Part 3 &mdash; WebSocket event handler</h3>
+    <p>This function is called automatically whenever a message arrives from the phone. The <code>switch</code> statement reads the first character of the message and calls the right servo or motor function.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C++ — WebSocket event handler</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="kw">void</span> <span class="fn">onWsEvent</span><span class="pn">(</span><span class="kw">uint8_t</span> num<span class="pn">,</span> <span class="fn">WStype_t</span> type<span class="pn">,</span>
+                <span class="kw">uint8_t</span><span class="pn">*</span> payload<span class="pn">,</span> <span class="kw">size_t</span> length<span class="pn">) {</span>
+  <span class="kw">if</span> <span class="pn">(</span>type <span class="pn">!=</span> WStype_TEXT <span class="pn">||</span> length <span class="pn">&lt;</span> <span class="num">1</span><span class="pn">)</span> <span class="kw">return</span><span class="pn">;</span>
+  <span class="kw">char</span> cmd <span class="pn">=</span> <span class="pn">(</span><span class="kw">char</span><span class="pn">)</span>payload<span class="pn">[</span><span class="num">0</span><span class="pn">];</span>
+  <span class="kw">switch</span> <span class="pn">(</span>cmd<span class="pn">) {</span>
+    <span class="kw">case</span> <span class="str">'L'</span><span class="pn">:</span> rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">45</span><span class="pn">);</span>                    <span class="kw">break</span><span class="pn">;</span>
+    <span class="kw">case</span> <span class="str">'R'</span><span class="pn">:</span> rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">135</span><span class="pn">);</span>                   <span class="kw">break</span><span class="pn">;</span>
+    <span class="kw">case</span> <span class="str">'C'</span><span class="pn">:</span> rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>                    <span class="kw">break</span><span class="pn">;</span>
+    <span class="kw">case</span> <span class="str">'F'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">128</span><span class="pn">);</span>                   <span class="kw">break</span><span class="pn">;</span>  <span class="cm">// ~50% speed forward</span>
+    <span class="kw">case</span> <span class="str">'S'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>                     <span class="kw">break</span><span class="pn">;</span>  <span class="cm">// stop</span>
+  <span class="pn">}</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <h3>Part 4 &mdash; setup() and loop()</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C++ — setup() and loop()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="kw">void</span> <span class="fn">handleRoot</span><span class="pn">() {</span>
+  httpServer<span class="pn">.</span><span class="fn">send_P</span><span class="pn">(</span><span class="num">200</span><span class="pn">,</span> <span class="str">"text/html"</span><span class="pn">,</span> CONTROLLER_HTML<span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="fn">Serial</span><span class="pn">.</span><span class="fn">begin</span><span class="pn">(</span><span class="num">115200</span><span class="pn">);</span>
+
+  <span class="cm">// Set up LEDC for DC motor (from M3)</span>
+  <span class="fn">ledcSetup</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">1000</span><span class="pn">,</span> <span class="num">8</span><span class="pn">);</span>            <span class="cm">// channel 0, 1 kHz, 8-bit</span>
+  <span class="fn">ledcAttachPin</span><span class="pn">(</span>MOTOR_PIN<span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>      <span class="cm">// GPIO 26 → channel 0</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>                  <span class="cm">// start stopped</span>
+
+  <span class="cm">// Centre rudder (from M2)</span>
+  rudder<span class="pn">.</span><span class="fn">attach</span><span class="pn">(</span>RUDDER_PIN<span class="pn">);</span>
+  rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><span class="num">90</span><span class="pn">);</span>
+
+  <span class="cm">// Start WiFi access point (from M4)</span>
+  <span class="fn">WiFi</span><span class="pn">.</span><span class="fn">softAP</span><span class="pn">(</span>SSID<span class="pn">,</span> PASSWORD<span class="pn">);</span>
+  <span class="fn">Serial</span><span class="pn">.</span><span class="fn">print</span><span class="pn">(</span><span class="str">"AP IP: "</span><span class="pn">);</span>
+  <span class="fn">Serial</span><span class="pn">.</span><span class="fn">println</span><span class="pn">(</span><span class="fn">WiFi</span><span class="pn">.</span><span class="fn">softAPIP</span><span class="pn">());</span>
+
+  <span class="cm">// Register HTTP route</span>
+  httpServer<span class="pn">.</span><span class="fn">on</span><span class="pn">(</span><span class="str">"/"</span><span class="pn">,</span> handleRoot<span class="pn">);</span>
+  httpServer<span class="pn">.</span><span class="fn">begin</span><span class="pn">();</span>
+
+  <span class="cm">// Start WebSocket server, register event handler</span>
+  wsServer<span class="pn">.</span><span class="fn">begin</span><span class="pn">();</span>
+  wsServer<span class="pn">.</span><span class="fn">onEvent</span><span class="pn">(</span>onWsEvent<span class="pn">);</span>
+
+  <span class="fn">Serial</span><span class="pn">.</span><span class="fn">println</span><span class="pn">(</span><span class="str">"Ready! Connect to WaveKit WiFi then open 192.168.4.1"</span><span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  httpServer<span class="pn">.</span><span class="fn">handleClient</span><span class="pn">();</span>  <span class="cm">// serve the page if requested</span>
+  wsServer<span class="pn">.</span><span class="fn">loop</span><span class="pn">();</span>             <span class="cm">// process WebSocket messages</span>
+<span class="pn">}</span></pre>
+    </div>
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Two lines in loop() — that&rsquo;s it</div>
+        <p><code>httpServer.handleClient()</code> checks if the browser wants a new page load. <code>wsServer.loop()</code> checks if a button was pressed. Together they handle everything. The ESP32&rsquo;s <code>loop()</code> runs thousands of times per second, so neither call is ever late.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-code">
+        <input type="checkbox" class="done-check" id="check-code" onchange="onCheckChange(this)">
+        <span class="done-text">Sketch makes sense!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 7. CHECK YOUR KNOWLEDGE -->
+  <section id="typecheck">
+    <h2><span class="num">9</span> Check Your Knowledge</h2>
+    <p>Five questions about what you just read. Each must be correct before you can continue &mdash; wrong answers will highlight the right one so you can learn from them.</p>
+    <div class="mcq-score-row">
+      <span class="mcq-score-chip" id="mcq-score-chip">0 / 5 correct</span>
+    </div>
+    <div class="mcq-list">
+
+      <!-- Q1 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q1 &mdash; What key advantage does WebSocket have over HTTP for a boat controller?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> WebSocket works without WiFi, HTTP does not</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> WebSocket keeps a connection open so messages arrive instantly without re-connecting</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> WebSocket is encrypted, making it more secure than HTTP</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> WebSocket uses less power because it sends fewer packets</button>
+        </div>
+        <div class="mcq-explanation"><strong>Persistent connection</strong> is the key. HTTP opens and closes a new connection for every request &mdash; fine for loading a page, too slow for real-time control. WebSocket stays open once established, so sending a command is as instant as typing a character.</div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q2 &mdash; What does <code>PROGMEM</code> do when applied to a large string?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Compresses the string to reduce file size</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Encrypts the string so it can&rsquo;t be read from Serial Monitor</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> Stores the string in flash memory instead of RAM, saving precious RAM</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Makes the string load faster by caching it in the browser</button>
+        </div>
+        <div class="mcq-explanation"><strong>Flash instead of RAM</strong> is correct. The ESP32 has 320 KB of RAM but 4 MB of flash. The controller HTML string is hundreds of bytes &mdash; too large to leave in RAM alongside your running program. <code>PROGMEM</code> pushes it to flash where there&rsquo;s plenty of room.</div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q3 &mdash; The Forward button uses <code>onpointerdown="send('F')"</code> and <code>onpointerup="send('S')"</code>. What does the motor do when you lift your thumb?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Nothing &mdash; it keeps the last speed until a Stop button is tapped</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> It reverses briefly then stops</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> It stops automatically &mdash; <code>onpointerup</code> sends <code>'S'</code></button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> The WebSocket closes and the phone reconnects</button>
+        </div>
+        <div class="mcq-explanation"><strong>Automatic stop on lift</strong> is the behaviour. <code>onpointerup</code> fires the moment the finger leaves the screen, sending <code>'S'</code> which calls <code>ledcWrite(0, 0)</code>. This prevents the boat from continuing to motor if you lose connection or let go.</div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q4 &mdash; Why must <code>wsServer.loop()</code> be called inside <code>void loop()</code>?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> It resets the WiFi chip every iteration to prevent crashes</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> It checks for new WebSocket messages and fires <code>onWsEvent</code> when one arrives</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> It refreshes the HTML page shown in the browser</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> It keeps the servo from drifting to a different angle</button>
+        </div>
+        <div class="mcq-explanation"><strong>Message polling</strong> is the answer. <code>wsServer.loop()</code> is a non-blocking poll &mdash; it checks the network buffer for any incoming messages. If one is there, it calls your <code>onWsEvent</code> function. Without this call in every iteration of <code>loop()</code>, button presses would stack up silently and be ignored.</div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q5 &mdash; The controller page is loaded over HTTP. After that, button commands travel via ___.</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> HTTP POST requests sent every 50 ms</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Bluetooth between the phone and the ESP32</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> WebSocket messages on port 81</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> A second HTTP server running on port 80</button>
+        </div>
+        <div class="mcq-explanation"><strong>WebSocket on port 81</strong> is correct. The JavaScript in the controller page does <code>new WebSocket('ws://' + location.hostname + ':81/')</code> immediately on load. From that point, all button events go through the WebSocket at port 81 &mdash; the HTTP server at port 80 is idle until someone reloads the page.</div>
+      </div>
+
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="typecheck-done-label" for="check-typecheck">
+        <input type="checkbox" class="done-check" id="check-typecheck" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="typecheck-done-text">Answer all 5 correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 8. UPLOAD & TEST -->
+  <section id="upload">
+    <h2><span class="num">7</span> Upload &amp; Test</h2>
+
+    <div class="box warn">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="box-body">
+        <div class="box-title">Bench test first</div>
+        <p>Upload via USB. The 5V motor draws power from the ESP32's USB connection — no separate battery required for bench testing.</p>
+      </div>
+    </div>
+
+    <p>Fill in the five key values from this module — pin numbers, the WebSocket port, the left angle, and the forward motor duty cycle. Use the <strong>Copy</strong> button in Section 6 to get the full PROGMEM sketch, then paste it into Arduino IDE and fill the matching lines there.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — key values: fill in the blanks, then proceed</span>
+        <button class="copy-btn" id="copy-upload-btn" onclick="copyFilledCode(this)" disabled>Copy</button>
+      </div>
+      <pre><span class="cm">// ── Pin assignments ───────────────────────────</span>
+<span class="kw">const int</span> RUDDER_PIN <span class="pn">=</span> <input class="code-blank" data-answer="13" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="Rudder GPIO pin"><span class="pn">;</span>   <span class="cm">// servo signal wire GPIO</span>
+<span class="kw">const int</span> MOTOR_PIN  <span class="pn">=</span> <input class="code-blank" data-answer="26" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="Motor GPIO pin"><span class="pn">;</span>   <span class="cm">// transistor Base GPIO (via 1 kΩ)</span>
+
+<span class="cm">// ── Server setup (in global scope) ───────────</span>
+<span class="fn">WebSocketsServer</span> wsServer<span class="pn">(</span><input class="code-blank" data-answer="81" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="WebSocket port"><span class="pn">);</span>   <span class="cm">// WebSocket port (HTTP was 80)</span>
+
+<span class="cm">// ── Command handler (inside onWsEvent) ───────</span>
+<span class="kw">case</span> <span class="str">'L'</span><span class="pn">:</span> rudder<span class="pn">.</span><span class="fn">write</span><span class="pn">(</span><input class="code-blank" data-answer="45" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="left angle degrees"><span class="pn">);</span>         <span class="kw">break</span><span class="pn">;</span>   <span class="cm">// left angle</span>
+<span class="kw">case</span> <span class="str">'F'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <input class="code-blank" data-answer="128" placeholder="???" oninput="checkUploadBlanks()" size="3" aria-label="forward duty cycle"><span class="pn">);</span>     <span class="kw">break</span><span class="pn">;</span>   <span class="cm">// forward duty cycle (~50%)</span></pre>
+    </div>
+
+    <div id="upload-blanks-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">All blanks correct!</div>
+        <p>Copy the full sketch from Section 6, paste into Arduino IDE, make sure those five values match, then upload.</p>
+      </div>
+    </div>
+
+    <ol class="steps" style="margin-top:16px">
+      <li><span>Copy the full sketch from <strong>Section 6 → Copy button</strong></span></li>
+      <li><span>Paste into Arduino IDE. Verify board is <strong>ESP32 Dev Module</strong> and correct port</span></li>
+      <li><span>Click <strong>Upload (→)</strong>. Hold BOOT if needed while dots appear</span></li>
+      <li><span>Open <strong>Serial Monitor</strong> (115200 baud), press EN — look for:<br><code>AP IP: 192.168.4.1</code></span></li>
+      <li><span>Join <code>WaveKit</code> WiFi on your phone (password: <code>wavekit123</code>)</span></li>
+      <li><span>Open <strong>http://192.168.4.1</strong> — the controller page loads with 4 buttons</span></li>
+      <li><span>Tap <strong>Left / Right / Centre</strong> — watch the servo move. Tap <strong>Forward / Stop</strong> — watch the motor spin</span></li>
+    </ol>
+
+    <!-- PLACEHOLDER: GIF of controller page and servo moving -->
+    <div class="media-ph ph-gif ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="ph-type">GIF</span>
+      <span class="ph-label">Phone controller page controlling the servo</span>
+      <span class="ph-hint">Replace with: GIF showing phone with controller page, tapping Left button, and servo rotating left in sync</span>
+    </div>
+
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Sketch won&rsquo;t compile — "WebSocketsServer.h: No such file"?</summary>
+      <div class="stuck-body">
+        <p>The library isn&rsquo;t installed. Go back to Section 5 and install <strong>"WebSockets by Markus Sattler"</strong> from the Library Manager.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Upload fails with "Connecting&hellip;"?</summary>
+      <div class="stuck-body">
+        <p>Hold <strong>BOOT</strong> while clicking Upload; release when dots appear. Same fix as every previous module.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; "WaveKit" WiFi doesn&rsquo;t appear on phone?</summary>
+      <div class="stuck-body">
+        <p>Check Serial Monitor — if you see the IP address, the AP is running. Move phone closer. Press <strong>EN</strong> to restart the ESP32 and try again.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Controller page loads but buttons do nothing?</summary>
+      <div class="stuck-body">
+        <p>The WebSocket may not have connected. Reload the page. Check Serial Monitor for errors. Make sure you&rsquo;re on <code>http://</code> not <code>https://</code>.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Servo doesn&rsquo;t move when buttons pressed?</summary>
+      <div class="stuck-body">
+        <p>Check <code>RUDDER_PIN</code> matches your wiring (GPIO 13). Verify the servo worked in Module 2. Add <code>Serial.println(cmd);</code> inside <code>onWsEvent</code> to confirm messages are arriving.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Motor doesn&rsquo;t spin when Forward pressed?</summary>
+      <div class="stuck-body">
+        <p>Check <code>MOTOR_PIN</code> (26) is connected to the transistor <strong>Base</strong> via the 1 kΩ resistor. Confirm <code>ledcSetup</code> and <code>ledcAttachPin</code> run in <code>setup()</code>. Add <code>Serial.println(cmd);</code> inside <code>onWsEvent</code> to confirm <code>'F'</code> messages are arriving.</p>
+      </div>
+    </details>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="upload-done-label" for="check-upload">
+        <input type="checkbox" class="done-check" id="check-upload" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="upload-done-text">Fill all blanks correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 8. CALIBRATE & TUNE -->
+  <section id="calibrate">
+    <h2><span class="num">8</span> Calibrate &amp; Tune</h2>
+    <p>The default values (<code>write(45)</code> for left, <code>write(135)</code> for right, <code>ledcWrite(0, 128)</code> for forward) are starting points. Your boat might need different values depending on how the servo horn is positioned and how fast the motor spins at 50% duty.</p>
+
+    <h3>Tuning the rudder angles</h3>
+    <p>In <code>onWsEvent</code>, find the three rudder lines and adjust the angles:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>If boat steers too little</th><th>If it steers too hard</th></tr></thead>
+        <tbody>
+          <tr><td>Left angle</td><td><code>45°</code></td><td>Decrease (e.g. <code>30°</code>)</td><td>Increase (e.g. <code>60°</code>)</td></tr>
+          <tr><td>Centre</td><td><code>90°</code></td><td>Usually fine as-is</td><td>Adjust ±5° if boat pulls to one side</td></tr>
+          <tr><td>Right angle</td><td><code>135°</code></td><td>Increase (e.g. <code>150°</code>)</td><td>Decrease (e.g. <code>120°</code>)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Tuning the motor speed</h3>
+    <p>In <code>onWsEvent</code>, find <code>case 'F'</code> and change the duty cycle (0–255):</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Duty value</th><th>Approx. speed</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td><code>0</code></td><td>Stopped</td><td>Stop command</td></tr>
+          <tr><td><code>64</code></td><td>~25%</td><td>Very slow — indoor bench test</td></tr>
+          <tr><td><code>128</code></td><td>~50%</td><td>Default forward — good starting point</td></tr>
+          <tr><td><code>200</code></td><td>~78%</td><td>Moderate speed in water</td></tr>
+          <tr><td><code>255</code></td><td>100%</td><td>Full speed (test outdoors first)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Start low, work up</div>
+        <p>Test with <code>ledcWrite(0, 64)</code> first to confirm the motor spins, then increase the value gradually. Higher duty cycles generate more heat in the transistor — confirm the circuit stays cool before going above 200.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-calibrate">
+        <input type="checkbox" class="done-check" id="check-calibrate" onchange="onCheckChange(this)">
+        <span class="done-text">Values tuned to my boat!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 10. CHALLENGE -->
+  <section id="challenge">
+    <h2><span class="num">10</span> Challenge &mdash; Variable Speed</h2>
+    <p>The current controller has one speed: forward at duty cycle 128. Real boats need <strong>slow</strong>, <strong>medium</strong>, and <strong>fast</strong> modes &mdash; slow for navigating tight spaces, fast for open water.</p>
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">What to add</div>
+        <p>Add three buttons to the HTML page: <strong>Slow</strong>, <strong>Medium</strong>, <strong>Fast</strong>. Each sends a different command character (for example <code>1</code>, <code>2</code>, <code>3</code>). In <code>onWsEvent</code>, handle these new characters with different <code>ledcWrite()</code> duty values.</p>
+      </div>
+    </div>
+    <p>Have a go at writing both the HTML buttons and the C++ switch cases before looking at the hint:</p>
+    <label class="honor-label" for="check-honor">
+      <input type="checkbox" class="honor-check" id="check-honor" onchange="onHonorCheck()">
+      I&rsquo;ve had a proper go at writing the variable speed code myself
+    </label>
+    <button class="reveal-btn" id="reveal-btn" onclick="revealSolution()">&#128161; Show the hint</button>
+    <div class="solution-reveal" id="solution-reveal">
+      <p style="margin-top:14px;font-size:14px;color:var(--text-muted)"><em>Add these buttons to the HTML in PROGMEM:</em></p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">HTML — speed buttons to add</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="cm">&lt;!-- Add this row after the Forward button row --&gt;</span>
+&lt;<span class="fn">div</span> <span class="kw">class</span>=<span class="str">"row"</span>&gt;
+  &lt;<span class="fn">button</span> <span class="kw">class</span>=<span class="str">"btn"</span> <span class="kw">onclick</span>=<span class="str">"send('1')"</span>&gt;&#127922; Slow&lt;/<span class="fn">button</span>&gt;
+  &lt;<span class="fn">button</span> <span class="kw">class</span>=<span class="str">"btn"</span> <span class="kw">onclick</span>=<span class="str">"send('2')"</span>&gt;&#128246; Medium&lt;/<span class="fn">button</span>&gt;
+  &lt;<span class="fn">button</span> <span class="kw">class</span>=<span class="str">"btn"</span> <span class="kw">onclick</span>=<span class="str">"send('3')"</span>&gt;&#128293; Fast&lt;/<span class="fn">button</span>&gt;
+&lt;/<span class="fn">div</span>&gt;</pre>
+      </div>
+      <p style="margin-top:14px;font-size:14px;color:var(--text-muted)"><em>Add these cases to <code>onWsEvent</code>:</em></p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">C++ — speed cases to add in switch</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">case</span> <span class="str">'1'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span>  <span class="num">64</span><span class="pn">);</span>  <span class="kw">break</span><span class="pn">;</span>  <span class="cm">// slow  (~25%)</span>
+<span class="kw">case</span> <span class="str">'2'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">128</span><span class="pn">);</span>  <span class="kw">break</span><span class="pn">;</span>  <span class="cm">// medium (~50%)</span>
+<span class="kw">case</span> <span class="str">'3'</span><span class="pn">:</span> <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">200</span><span class="pn">);</span>  <span class="kw">break</span><span class="pn">;</span>  <span class="cm">// fast   (~78%)</span></pre>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-challenge">
+        <input type="checkbox" class="done-check" id="check-challenge" onchange="onCheckChange(this)">
+        <span class="done-text">Challenge done!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- 12. WAVEKIT COMPLETE! -->
+  <section id="next">
+    <h2><span class="num">11</span> WaveKit Complete!</h2>
+    <div class="box ok">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">You built a working RC boat controller from scratch</div>
+        <p>From blinking an LED in Module 1 to driving real hardware over WiFi from your phone &mdash; five modules, one boat, one complete system. That&rsquo;s not beginner work.</p>
+      </div>
+    </div>
+
+    <h3>What you built across all 5 modules</h3>
+    <div class="achievement-grid">
+      <div class="achievement-item">
+        <div class="ach-num">M1</div>
+        <div class="ach-body">
+          <div class="ach-title">Blink &amp; Setup</div>
+          <div class="ach-sub">Arduino IDE, GPIO, setup()/loop()</div>
+        </div>
+      </div>
+      <div class="achievement-item">
+        <div class="ach-num">M2</div>
+        <div class="ach-body">
+          <div class="ach-title">Servo Rudder</div>
+          <div class="ach-sub">PWM, Servo.h, angle mapping</div>
+        </div>
+      </div>
+      <div class="achievement-item">
+        <div class="ach-num">M3</div>
+        <div class="ach-body">
+          <div class="ach-title">DC Motor Control</div>
+          <div class="ach-sub">Transistor circuit, LEDC PWM, duty cycle 0–255</div>
+        </div>
+      </div>
+      <div class="achievement-item">
+        <div class="ach-num">M4</div>
+        <div class="ach-body">
+          <div class="ach-title">WiFi Access Point</div>
+          <div class="ach-sub">softAP, HTTP web server, HTML delivery</div>
+        </div>
+      </div>
+      <div class="achievement-item" style="grid-column: 1 / -1; background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); border-color: var(--green-l);">
+        <div class="ach-num" style="background: var(--green); box-shadow: 0 3px 0 #15803D;">M5</div>
+        <div class="ach-body">
+          <div class="ach-title">WebSocket Controller</div>
+          <div class="ach-sub">WebSockets, PROGMEM, real-time phone control — everything integrated</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Ideas for going further</h3>
+    <ul>
+      <li><strong>Add a camera</strong> &mdash; An ESP32-CAM module can stream live video back to the browser. You could add a live feed to the controller page.</li>
+      <li><strong>Speed indicator</strong> &mdash; Send data <em>back</em> from the ESP32 to the phone over WebSocket: current throttle, battery voltage, or motor temperature.</li>
+      <li><strong>Multiple clients</strong> &mdash; The WebSocket server supports multiple connections. You could add a co-pilot controller on a second phone.</li>
+      <li><strong>Waypoint autopilot</strong> &mdash; Add a GPS module and program the ESP32 to navigate to coordinates autonomously.</li>
+      <li><strong>Obstacle avoidance</strong> &mdash; Mount an ultrasonic sensor at the bow and add code to stop the motor if something is too close.</li>
+    </ul>
+
+    <div class="box tip" style="margin-top:20px">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <div class="box-body">
+        <div class="box-title">Keep the code</div>
+        <p>The sketch you wrote today is a real embedded systems project. WiFi AP + HTTP server + WebSocket server + servo + DC motor running concurrently on a microcontroller. That pattern appears in commercial IoT devices. Save it, name it well, and build on it.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-next">
+        <input type="checkbox" class="done-check" id="check-next" onchange="onCheckChange(this)">
+        <span class="done-text">WaveKit complete!</span>
+      </label>
+      <button class="btn-next hidden" onclick="nextStep()">Next &#8594;</button>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<div id="debug-banner" class="debug-banner" role="status" aria-live="polite" style="display:none">
+  &#9888; DEBUG MODE ON &mdash; all section gates bypassed &mdash; not for student use
+</div>
+
+<script>
+function copyCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+var DEBUG_MODE = false;
+var SECTIONS = ['learn','parts','websocket','protocol','library','code','upload','calibrate','typecheck','challenge','next'];
+var NAMES = {
+  learn:     "What You'll Learn",
+  parts:     "What You Need",
+  websocket: "What is a WebSocket?",
+  protocol:  "The Command Protocol",
+  library:   "Install the Library",
+  code:      "The Boat Sketch",
+  upload:    "Upload & Test",
+  calibrate: "Calibrate & Tune",
+  typecheck: "Check Your Knowledge",
+  challenge: "Challenge",
+  next:      "WaveKit Complete!"
+};
+var currentStep = 0, unlockedUpTo = 0;
+var dots = document.querySelectorAll('.step-dot');
+
+function updateDots() {
+  dots.forEach(function(dot, i) {
+    var sec = document.getElementById(SECTIONS[i]);
+    var check = sec && sec.querySelector('.done-check');
+    var isDone = check && check.checked, isActive = i === currentStep, isLocked = i > unlockedUpTo;
+    dot.classList.toggle('active', isActive);
+    dot.classList.toggle('done',   isDone && !isActive);
+    dot.classList.toggle('locked', isLocked);
+    dot.disabled = isLocked;
+    dot.textContent = (isDone && !isActive) ? '✓' : String(i + 1);
+  });
+}
+
+function showStep(n, force) {
+  force = force || false;
+  if (n < 0 || n >= SECTIONS.length) return;
+  if (!force && n > unlockedUpTo) return;
+  SECTIONS.forEach(function(id, i) { document.getElementById(id).classList.toggle('active', i === n); });
+  var lbl = document.getElementById('current-section-label');
+  if (lbl) lbl.textContent = NAMES[SECTIONS[n]];
+  var hero = document.querySelector('.hero');
+  if (hero) hero.style.display = (n === 0) ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateDots();
+}
+
+function nextStep() { showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 0) showStep(currentStep - 1, true); }
+
+function onCheckChange(checkbox) {
+  var sec = checkbox.closest('section'), lbl = checkbox.closest('.done-label');
+  var nextBtn = sec && sec.querySelector('.btn-next'), idx = SECTIONS.indexOf(sec.id);
+  lbl.classList.toggle('checked', checkbox.checked);
+  if (checkbox.checked) {
+    unlockedUpTo = Math.max(unlockedUpTo, idx + 1);
+    if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+  } else {
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  updateDots();
+}
+
+dots.forEach(function(dot, i) { dot.addEventListener('click', function(){ showStep(i); }); });
+
+/* ── Library checklist gate ──────────────────── */
+function checkLibraryProgress() {
+  if (DEBUG_MODE) return;
+  var ids = ['check-lib-1','check-lib-2','check-lib-3','check-lib-4','check-lib-5'];
+  var all = ids.every(function(id){ return document.getElementById(id).checked; });
+  var btn = document.getElementById('btn-next-library');
+  var ok  = document.getElementById('library-ok');
+  ids.forEach(function(id, i) {
+    var item = document.getElementById('lib-item-' + (i+1));
+    if (item) item.classList.toggle('item-done', document.getElementById(id).checked);
+  });
+  if (all) {
+    if (btn) btn.disabled = false;
+    if (ok)  ok.style.display = 'flex';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('library') + 1);
+    updateDots();
+  }
+}
+
+/* ── MCQ ─────────────────────────────────────── */
+var mcqScore = 0;
+function selectOption(btn, isCorrect) {
+  var card = btn.closest('.mcq-card');
+  if (card.dataset.answered) return;
+  card.dataset.answered = 'true';
+  card.querySelectorAll('.mcq-opt').forEach(function(b) { b.disabled = true; });
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    var correct = card.querySelector('[data-correct="true"]');
+    if (correct) correct.classList.add('correct');
+  }
+  card.querySelector('.mcq-explanation').classList.add('show');
+  if (isCorrect) {
+    mcqScore++;
+    var chip = document.getElementById('mcq-score-chip');
+    chip.textContent = mcqScore + ' / 5 correct';
+    if (mcqScore === 5) {
+      chip.classList.add('all-ok');
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      var dtxt = document.getElementById('typecheck-done-text');
+      if (dc)   dc.disabled = false;
+      if (dlbl) dlbl.classList.remove('locked-label');
+      if (dtxt) dtxt.textContent = 'All correct — continue!';
+    }
+  }
+}
+
+/* ── Upload blanks gate ──────────────────────── */
+function checkUploadBlanks() {
+  if (DEBUG_MODE) return;
+  var blanks = document.querySelectorAll('#upload .code-blank');
+  var allCorrect = blanks.length > 0;
+  blanks.forEach(function(inp) {
+    var val = inp.value.trim(), ans = inp.dataset.answer;
+    if (val === ans) { inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong'); }
+    else if (val !== '') { inp.classList.add('blank-wrong'); inp.classList.remove('blank-correct'); allCorrect = false; }
+    else { inp.classList.remove('blank-correct','blank-wrong'); allCorrect = false; }
+  });
+  var copyBtn = document.getElementById('copy-upload-btn');
+  var okBox   = document.getElementById('upload-blanks-ok');
+  var dc      = document.getElementById('check-upload');
+  var dlbl    = document.getElementById('upload-done-label');
+  var dtxt    = document.getElementById('upload-done-text');
+  if (allCorrect) {
+    if (copyBtn) copyBtn.disabled = false;
+    if (okBox)   okBox.style.display = 'flex';
+    if (dc)      dc.disabled = false;
+    if (dlbl)    dlbl.classList.remove('locked-label');
+    if (dtxt)    dtxt.textContent = 'Sketch filled in — upload it!';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('upload') + 1);
+    updateDots();
+  } else {
+    if (copyBtn) copyBtn.disabled = true;
+    if (okBox)   okBox.style.display = 'none';
+    if (dc && !dc.checked) dc.disabled = true;
+    if (dlbl && !dc.checked) dlbl.classList.add('locked-label');
+  }
+}
+
+function copyFilledCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  function getText(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeName === 'INPUT') return n.value;
+    var t = ''; n.childNodes.forEach(function(c){ t += getText(c); }); return t;
+  }
+  navigator.clipboard.writeText(getText(pre)).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Honor gate ──────────────────────────────── */
+function onHonorCheck() {
+  document.getElementById('reveal-btn').style.display =
+    document.getElementById('check-honor').checked ? 'block' : 'none';
+}
+function revealSolution() {
+  document.getElementById('solution-reveal').style.display = 'block';
+  var btn = document.getElementById('reveal-btn');
+  btn.disabled = true; btn.textContent = '✓ Hint shown below';
+}
+
+/* ── Debug toggle ────────────────────────────── */
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  var btn    = document.getElementById('debug-toggle-btn');
+  var banner = document.getElementById('debug-banner');
+  if (DEBUG_MODE) {
+    unlockedUpTo = SECTIONS.length - 1;
+    document.querySelectorAll('.btn-next').forEach(function(b) { b.disabled = false; });
+    document.querySelectorAll('.done-check').forEach(function(c) { c.disabled = false; });
+    document.querySelectorAll('.done-label').forEach(function(l) { l.classList.remove('locked-label'); });
+    document.querySelectorAll('#upload .code-blank').forEach(function(inp) {
+      inp.value = inp.dataset.answer; inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong');
+    });
+    var cb = document.getElementById('copy-upload-btn');
+    if (cb) cb.disabled = false;
+    var ob = document.getElementById('upload-blanks-ok');
+    if (ob) ob.style.display = 'flex';
+    btn.textContent = '🔓 Debug: ON'; btn.classList.add('debug-on');
+    banner.style.display = 'block';
+  } else {
+    unlockedUpTo = 0;
+    SECTIONS.forEach(function(id, i) {
+      var sec       = document.getElementById(id);
+      var doneCheck = sec && sec.querySelector('.done-check');
+      var nextBtn   = sec && sec.querySelector('.btn-next');
+      if (doneCheck && doneCheck.checked) {
+        unlockedUpTo = Math.max(unlockedUpTo, i + 1);
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+      } else {
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = true;
+      }
+    });
+    /* re-lock library gate if not all ticked */
+    checkLibraryProgress();
+    /* re-lock upload blanks gate */
+    checkUploadBlanks();
+    /* re-lock typecheck if not all correct */
+    if (mcqScore < 5) {
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      if (dc && !dc.checked) dc.disabled = true;
+      if (dlbl && !document.getElementById('check-typecheck').checked)
+        dlbl.classList.add('locked-label');
+      var tcIdx  = SECTIONS.indexOf('typecheck');
+      if (unlockedUpTo >= tcIdx)
+        unlockedUpTo = Math.min(unlockedUpTo, tcIdx);
+    }
+    btn.textContent = '🔒 Debug'; btn.classList.remove('debug-on');
+    banner.style.display = 'none';
+  }
+  updateDots();
+}
+
+/* ── Init ────────────────────────────────────── */
+showStep(0, true);
+</script>
+</body>
+</html>

@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WaveKit — M3: Motor Control (PWM Speed)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #EEF2FF;
+  --surface:    #FFFFFF;
+  --surface2:   #F5F3FF;
+  --border:     #C7D2FE;
+  --primary:    #4F46E5;
+  --primary-l:  #818CF8;
+  --primary-d:  #3730A3;
+  --green:      #16A34A;
+  --green-l:    #22C55E;
+  --orange:     #D97706;
+  --red:        #DC2626;
+  --text:       #312E81;
+  --text-body:  #1E1B4B;
+  --text-muted: #6B7280;
+  --code-bg:    #F8F7FF;
+  --shadow:     0 6px 0 #C7D2FE, 0 8px 28px rgba(79,70,229,0.13);
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  20px;
+  --mono:       "JetBrains Mono", "Courier New", monospace;
+  --sans:       "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display:    "Fredoka", "Nunito", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-body);
+  line-height: 1.7;
+  font-size: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Top nav ────────────────────────────────────────────── */
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 2px 12px rgba(79,70,229,0.07);
+}
+.top-nav-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.brand-name {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.2px;
+}
+.brand-chip {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--sans);
+  white-space: nowrap;
+}
+.step-dots {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  gap: 0;
+}
+.step-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #E0E7FF;
+  color: var(--primary-l);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--display);
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+.step-dot::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 2px;
+  background: var(--border);
+}
+.step-dot:last-child::after { display: none; }
+.step-dot.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 10px rgba(79,70,229,0.35);
+}
+.step-dot.done { background: #22C55E; color: #fff; border-color: #22C55E; }
+.step-dot:hover:not(.active):not(.locked) {
+  background: #C7D2FE;
+  color: var(--primary-d);
+}
+.step-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.step-dot.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-section {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: none;
+}
+
+/* ── Page wrapper ───────────────────────────────────────── */
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 60%, #F0FDF4 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 30px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  bottom: -30px; left: 30px;
+  width: 100px; height: 100px;
+  background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mod-badge {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  font-family: var(--sans);
+}
+.hero h1 {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.hero-desc { color: #5B52B5; font-size: 14px; max-width: 500px; font-weight: 600; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.meta-chip {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.meta-chip .mlabel {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: block;
+  margin-bottom: 1px;
+  font-weight: 700;
+}
+.meta-chip .mvalue { color: var(--primary-d); font-weight: 700; }
+
+/* ── Section cards ──────────────────────────────────────── */
+section {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 28px 30px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  scroll-margin-top: 76px;
+  display: none;
+}
+section.active { display: block; }
+
+/* ── Headings ───────────────────────────────────────────── */
+h2 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+h2 .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 3px 0 var(--primary-d);
+}
+h3 {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 22px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+h3::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--primary-l);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+p { margin-bottom: 12px; color: var(--text-body); }
+
+/* ── Lists ──────────────────────────────────────────────── */
+ul, ol { padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 6px; color: var(--text-body); }
+li::marker { color: var(--primary); font-weight: 700; }
+ol li::marker { color: var(--primary); font-weight: 700; }
+
+/* ── Inline code ────────────────────────────────────────── */
+code {
+  font-family: var(--mono);
+  background: #EEF2FF;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.85em;
+  color: var(--primary-d);
+}
+
+/* ── Code block ─────────────────────────────────────────── */
+.code-block {
+  background: var(--code-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 0 #C7D2FE;
+}
+.code-block .code-header {
+  background: #EEF2FF;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid var(--border);
+}
+.code-block .code-lang {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.copy-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 3px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s;
+}
+.copy-btn:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.copy-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.copy-btn.copied { color: var(--green); border-color: var(--green-l); background: #F0FDF4; }
+.code-block pre {
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.kw  { color: #7C3AED; }
+.fn  { color: #2563EB; }
+.cm  { color: #9CA3AF; font-style: italic; }
+.str { color: #16A34A; }
+.num { color: #D97706; }
+.cn  { color: #DC2626; }
+.pn  { color: #374151; }
+.tx  { color: #1F2937; }
+
+/* ── Info boxes ─────────────────────────────────────────── */
+.box {
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin: 16px 0;
+  border-left: 5px solid;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.box-icon { flex-shrink: 0; margin-top: 2px; }
+.box-body { flex: 1; min-width: 0; }
+.box .box-title {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  font-family: var(--sans);
+}
+.box.tip  { background: #EEF2FF; border-color: var(--primary); }
+.box.tip  .box-title { color: var(--primary); }
+.box.tip  .box-icon  { color: var(--primary); }
+.box.err  { background: #FFF1F2; border-color: #F87171; }
+.box.err  .box-title { color: #B91C1C; }
+.box.err  .box-icon  { color: #EF4444; }
+.box.ok   { background: #F0FDF4; border-color: var(--green-l); }
+.box.ok   .box-title { color: var(--green); }
+.box.ok   .box-icon  { color: var(--green-l); }
+.box.warn { background: #FFFBEB; border-color: #FBBF24; }
+.box.warn .box-title { color: #92400E; }
+.box.warn .box-icon  { color: #F59E0B; }
+.box p    { margin: 0; font-size: 14px; color: var(--text-body); }
+
+/* ── Table ──────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: var(--sans);
+}
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #E0E7FF;
+  vertical-align: top;
+  color: var(--text-body);
+}
+tr:nth-child(odd)  td { background: #fff; }
+tr:nth-child(even) td { background: var(--surface2); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Step list ──────────────────────────────────────────── */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 0;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 18px;
+}
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before {
+  content: counter(step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--display);
+  flex-shrink: 0;
+  margin-top: 1px;
+  box-shadow: 0 3px 0 var(--primary-d);
+  position: relative;
+  z-index: 1;
+}
+.steps li::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px);
+}
+.steps li:last-child::after { display: none; }
+.steps li > span { padding-top: 4px; }
+
+/* ── Learn grid ─────────────────────────────────────────── */
+.learn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.learn-item {
+  background: #EEF2FF;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+.learn-item svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* ── Concept cards ──────────────────────────────────────── */
+.concept-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.concept-card {
+  background: #EEF2FF;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: 0 3px 0 var(--border);
+}
+.concept-card .c-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--primary-l);
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+.concept-card .c-fn {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--primary-d);
+  font-weight: 500;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+.concept-card p { font-size: 13px; margin: 0; color: var(--text-muted); }
+
+/* ── Throttle diagram ───────────────────────────────────── */
+.throttle-diagram {
+  background: var(--code-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+.throttle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.throttle-row:last-child { margin-bottom: 0; }
+.throttle-label {
+  width: 72px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-d);
+  font-family: var(--sans);
+  text-align: right;
+}
+.throttle-bar-wrap {
+  flex: 1;
+  height: 28px;
+  background: #E0E7FF;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.throttle-fill {
+  background: var(--primary);
+  border-radius: 4px 0 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--sans);
+  white-space: nowrap;
+  padding: 0 6px;
+}
+.throttle-val {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--mono);
+}
+
+/* ── Wire colours ───────────────────────────────────────── */
+.wire-white  { color: #374151; font-weight: 700; }
+.wire-red    { color: #DC2626; font-weight: 700; }
+.wire-black  { color: #111827; font-weight: 700; }
+
+/* ── Challenge block ────────────────────────────────────── */
+.challenge {
+  background: linear-gradient(135deg, #F5F3FF 0%, #ECFDF5 100%);
+  border: 2px solid #A78BFA;
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-top: 20px;
+}
+.challenge-title {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  color: #6D28D9;
+  margin-bottom: 10px;
+}
+
+/* ── Next banner ────────────────────────────────────────── */
+.next-banner {
+  background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-decoration: none;
+  color: var(--text-body);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--border);
+}
+.next-banner:hover { border-color: var(--primary); box-shadow: 0 4px 0 var(--primary-l); }
+.next-banner:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: var(--radius-md); }
+.next-banner .nb-arrow { color: var(--primary); flex-shrink: 0; }
+.next-banner .nb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700; }
+.next-banner .nb-title { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--text); margin-top: 3px; }
+.next-banner .nb-desc  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Section footer ─────────────────────────────────────── */
+.section-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 2px dashed var(--border);
+  gap: 12px;
+}
+
+/* Done checkbox */
+.done-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  flex: 1;
+  max-width: 300px;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 44px;
+  user-select: none;
+}
+.done-label:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.done-label.checked { background: #F0FDF4; border-color: var(--green-l); }
+.done-label.locked-label { opacity: 0.6; cursor: not-allowed; }
+.done-label.locked-label:hover { background: var(--surface2); border-color: var(--border); }
+.done-check {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.done-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--sans);
+}
+.done-label.checked .done-text { color: var(--green); }
+
+/* Wizard nav buttons — claymorphism */
+.btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--primary);
+  color: #fff;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-md);
+  padding: 11px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--display);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 5px 0 var(--primary-d), 0 8px 20px rgba(79,70,229,0.18);
+  min-height: 44px;
+  transform: translateY(0);
+}
+.btn-next:hover:not(:disabled)  {
+  background: var(--primary-d);
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 var(--primary-d), 0 10px 24px rgba(79,70,229,0.22);
+}
+.btn-next:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--primary-d);
+}
+.btn-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-next:disabled {
+  background: #C7D2FE;
+  color: #818CF8;
+  box-shadow: 0 4px 0 #A5B4FC;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--display);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 3px 0 var(--border);
+  min-height: 44px;
+}
+.btn-back:hover { border-color: var(--primary-l); color: var(--primary); transform: translateY(-1px); }
+.btn-back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
+.btn-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-back.hidden, .btn-next.hidden { visibility: hidden; pointer-events: none; }
+
+/* ── Media placeholders ─────────────────────────────────── */
+.media-ph {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: #F5F3FF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  margin: 14px 0;
+}
+.media-ph.ph-sm { min-height: 100px; }
+.media-ph.ph-md { min-height: 160px; }
+.media-ph.ph-lg { min-height: 220px; }
+.media-ph .ph-icon { color: var(--primary-l); opacity: 0.7; }
+.media-ph .ph-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--sans);
+}
+.media-ph .ph-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-d);
+  font-family: var(--sans);
+}
+.media-ph .ph-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  max-width: 280px;
+  line-height: 1.4;
+}
+.media-ph.ph-gif { border-color: var(--green-l); background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); }
+.media-ph.ph-gif .ph-type  { color: var(--green); }
+.media-ph.ph-gif .ph-label { color: #15803D; }
+.media-ph.ph-gif .ph-icon  { color: var(--green-l); }
+
+/* ── Install / checklist items ──────────────────────────── */
+.install-group { margin: 22px 0; }
+.install-group-title {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.install-group-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 15px;
+  background: var(--primary-l);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.install-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 9px;
+  background: var(--surface2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.install-item:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.install-item.item-done { background: #F0FDF4; border-color: var(--green-l); }
+.install-check {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.install-item-text {
+  font-size: 14px;
+  color: var(--text-body);
+  font-weight: 600;
+  line-height: 1.55;
+}
+.install-item.item-done .install-item-text { color: #15803D; }
+
+/* ── MCQ ────────────────────────────────────────────────── */
+.mcq-list { display: flex; flex-direction: column; gap: 22px; margin: 20px 0; }
+.mcq-card { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 22px 24px; }
+.mcq-q { font-weight: 700; color: var(--text); margin-bottom: 8px; font-size: 15px; max-width: none; }
+.mcq-context { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; margin-bottom: 14px; overflow-x: auto; }
+.mcq-blank { background: #FEF3C7; border-radius: 4px; padding: 1px 8px; color: #92400E; font-weight: 700; }
+.mcq-options { display: flex; flex-direction: column; gap: 8px; }
+.mcq-opt {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-body);
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.mcq-opt:hover:not(:disabled) { border-color: var(--primary-l); background: #EEF2FF; }
+.mcq-opt.correct { border-color: var(--green); background: #F0FDF4; color: var(--green); }
+.mcq-opt.wrong   { border-color: var(--red);   background: #FFF1F2; color: var(--red); }
+.mcq-opt:disabled { cursor: default; }
+.mcq-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+}
+.mcq-opt.correct .mcq-badge { background: var(--green);  color: #fff; border-color: var(--green); }
+.mcq-opt.wrong   .mcq-badge { background: var(--red);    color: #fff; border-color: var(--red); }
+.mcq-explanation {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #F0FDF4;
+  border-left: 4px solid var(--green-l);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 14px;
+  color: var(--text-body);
+  display: none;
+  line-height: 1.6;
+}
+.mcq-explanation.show { display: block; }
+.mcq-score-row { margin-bottom: 4px; }
+.mcq-score-chip {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  display: inline-block;
+}
+.mcq-score-chip.all-ok { border-color: var(--green); color: var(--green); background: #F0FDF4; }
+
+/* ── Honor / reveal ─────────────────────────────────────── */
+.honor-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 11px 16px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+  transition: background 0.15s;
+}
+.honor-label:hover { background: #EEF2FF; }
+.honor-check { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.reveal-btn {
+  display: none;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 18px;
+  background: var(--surface2);
+  border: 1.5px dashed var(--primary-l);
+  border-radius: 12px;
+  color: var(--primary);
+  font-weight: 700;
+  font-family: var(--display);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.reveal-btn:hover { background: #EEF2FF; }
+.solution-reveal { display: none; margin-top: 14px; }
+
+/* ── Debug banner ───────────────────────────────────────── */
+.debug-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1E1B4B;
+  color: #A5B4FC;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  padding: 5px;
+  letter-spacing: 1px;
+  z-index: 100;
+}
+
+/* ── Debug toggle button ────────────────────────────────── */
+.debug-toggle-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+  min-height: 30px;
+}
+.debug-toggle-btn:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+.debug-toggle-btn.debug-on { background: #FEF3C7; border-color: #FBBF24; color: #92400E; }
+.debug-toggle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── Code fill-in blanks ────────────────────────────────── */
+.code-blank { font-family: var(--mono); font-size: 13px; background: #FEF3C7; border: 2px solid #FBBF24; border-radius: 6px; padding: 2px 6px; color: #92400E; min-width: 36px; text-align: center; outline: none; vertical-align: middle; transition: border-color 0.15s, background 0.15s; }
+.code-blank:focus { border-color: var(--primary); background: #EEF2FF; color: var(--primary-d); }
+.code-blank.blank-correct { background: #F0FDF4; border-color: var(--green-l); color: var(--green); }
+.code-blank.blank-wrong   { background: #FFF1F2; border-color: #F87171; color: var(--red); }
+
+/* ── Inline stuck collapsibles ──────────────────────────── */
+.stuck-details { margin: 8px 0; border-radius: var(--radius-sm); border: 1.5px solid var(--orange); background: #FFFBEB; overflow: hidden; }
+.stuck-summary { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); font-family: var(--sans); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.stuck-summary::-webkit-details-marker { display: none; }
+.stuck-summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+details[open] .stuck-summary::before { transform: rotate(90deg); }
+.stuck-body { padding: 4px 16px 14px; font-size: 13px; color: var(--text-body); border-top: 1px solid #FDE68A; }
+.stuck-body p { margin: 8px 0 0; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-l); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 60px; }
+  section { padding: 22px 18px; border-radius: 16px; }
+  .hero { padding: 22px 18px; }
+  .hero h1 { font-size: 22px; }
+  .learn-grid, .concept-grid { grid-template-columns: 1fr; }
+  h2 { font-size: 17px; }
+  .step-dot { width: 22px; height: 22px; font-size: 9px; }
+  .step-dot::after { width: 5px; }
+  .brand-chip { display: none; }
+  .nav-section { display: block; }
+  .top-nav-inner { gap: 10px; }
+  .btn-next, .btn-back { padding: 10px 14px; font-size: 13px; }
+  .done-label { max-width: none; }
+  .section-footer { flex-wrap: wrap; }
+}
+@media (max-width: 420px) {
+  .step-dot { width: 18px; height: 18px; font-size: 8px; }
+  .step-dot::after { width: 3px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sticky top nav ───────────────────────────────────── -->
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-name">WaveKit</span>
+      <span class="brand-chip">M3 of 5</span>
+    </a>
+
+    <nav class="step-dots" aria-label="Module sections">
+      <button class="step-dot active" data-index="0"  title="What You'll Learn">1</button>
+      <button class="step-dot locked"  data-index="1"  title="What You Need">2</button>
+      <button class="step-dot locked"  data-index="2"  title="Meet the Motor">3</button>
+      <button class="step-dot locked"  data-index="3"  title="LEDC PWM">4</button>
+      <button class="step-dot locked"  data-index="4"  title="The Motor Circuit">5</button>
+      <button class="step-dot locked"  data-index="5"  title="Wire It Up">6</button>
+      <button class="step-dot locked"  data-index="6"  title="The Motor Sketch">7</button>
+      <button class="step-dot locked"  data-index="7"  title="Upload &amp; Test">8</button>
+      <button class="step-dot locked"  data-index="8"  title="Check Your Knowledge">9</button>
+      <button class="step-dot locked"  data-index="9"  title="Challenge">10</button>
+      <button class="step-dot locked"  data-index="10" title="What's Next">11</button>
+    </nav>
+
+    <span class="nav-section" id="current-section-label">What You'll Learn</span>
+    <button class="debug-toggle-btn" id="debug-toggle-btn" onclick="toggleDebug()" aria-label="Toggle debug mode" title="Unlock all sections for testing">🔒 Debug</button>
+  </div>
+</header>
+
+<!-- ── Page content ─────────────────────────────────────── -->
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════
+       1. WHAT YOU'LL LEARN
+  ═══════════════════════════════════════════ -->
+  <section id="learn" class="active">
+
+    <div class="hero">
+      <div class="mod-badge">Module 3 of 5</div>
+      <h1>Motor Control — PWM Speed</h1>
+      <p class="hero-desc">Spin a 5 V DC motor and control its speed using the ESP32's built-in LEDC PWM peripheral.</p>
+      <div class="meta-chips">
+        <div class="meta-chip">
+          <span class="mlabel">Time</span>
+          <span class="mvalue">30 – 45 min</span>
+        </div>
+        <div class="meta-chip">
+          <span class="mlabel">Difficulty</span>
+          <span class="mvalue">Beginner</span>
+        </div>
+        <div class="meta-chip">
+          <span class="mlabel">Prerequisites</span>
+          <span class="mvalue">Modules 1 &amp; 2</span>
+        </div>
+      </div>
+    </div>
+
+    <h2><span class="num">1</span> What You'll Learn</h2>
+    <div class="learn-grid">
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Understand why a <strong>transistor</strong> is needed between the ESP32 and a DC motor
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Use the ESP32's <strong>LEDC</strong> peripheral to generate a PWM signal
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Control <strong>motor speed</strong> with a duty cycle from 0 (stopped) to 255 (full)
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Wire a 5 V DC motor and a <strong>flyback diode</strong> to <strong>GPIO 26</strong>
+      </div>
+      <div class="learn-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Use <code>ledcSetup()</code>, <code>ledcAttachPin()</code>, and <code>ledcWrite()</code>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back hidden" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-learn">
+        <input type="checkbox" class="done-check" id="check-learn" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       2. WHAT YOU NEED
+  ═══════════════════════════════════════════ -->
+  <section id="parts">
+    <h2><span class="num">2</span> What You Need</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 DevKitC V4</td><td>Same board from Modules 1 &amp; 2</td></tr>
+          <tr><td>5 V DC motor</td><td>WaveKit part — this is the propeller motor (small hobby/toy motor)</td></tr>
+          <tr><td>NPN transistor (2N2222 or PN2222)</td><td>Acts as a switch — lets the ESP32 control the motor current</td></tr>
+          <tr><td>1 k&Omega; resistor</td><td>Limits current into the transistor base</td></tr>
+          <tr><td>1N4001 flyback diode</td><td>Protects the circuit from voltage spikes when the motor stops</td></tr>
+          <tr><td>Breadboard</td><td>For connecting the transistor, resistor, and diode</td></tr>
+          <tr><td>4–5 × DuPont jumper wires</td><td>Male-to-male; motor, transistor, GPIO connections</td></tr>
+          <tr><td>USB-A to Micro-USB cable</td><td>Same data cable from Modules 1 &amp; 2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLACEHOLDER: Photo of all parts laid out -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">Parts photo</span>
+      <span class="ph-hint">Replace with: flat-lay photo of 5V DC motor, NPN transistor, 1kΩ resistor, 1N4001 diode, breadboard, ESP32, jumper wires, and USB cable laid out on a clean surface</span>
+    </div>
+
+    <div class="box warn">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="box-body">
+        <div class="box-title">No propeller yet</div>
+        <p>Run the motor without a propeller attached for all testing steps. Confirm it spins reliably at the right speed before attaching anything to the shaft.</p>
+      </div>
+    </div>
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-parts">
+        <input type="checkbox" class="done-check" id="check-parts" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       3. MEET THE MOTOR
+  ═══════════════════════════════════════════ -->
+  <section id="motor">
+    <h2><span class="num">3</span> Meet the Motor</h2>
+    <p>A <strong>DC motor</strong> spins when current flows through its internal coils, creating a magnetic field that pushes against permanent magnets inside the casing. Reverse the current → motor spins the other way. More current → more torque.</p>
+
+    <p>The problem: a 5 V DC motor can draw <strong>200–600 mA</strong> when running. An ESP32 GPIO pin can only source about <strong>40 mA</strong>. Connect the motor directly and you'll either get nothing, or damage the ESP32.</p>
+
+    <!-- PLACEHOLDER: Photo of 5V DC motor with labelled shaft and terminals -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">5V DC motor — labelled</span>
+      <span class="ph-hint">Replace with: photo of 5V hobby motor with labels on the two terminals (+/−) and the output shaft</span>
+    </div>
+
+    <h3>Solution: use a transistor as a switch</h3>
+    <p>A <strong>transistor</strong> is an electronic switch. A tiny current at the <strong>Base (B)</strong> leg allows a much larger current to flow from <strong>Collector (C)</strong> to <strong>Emitter (E)</strong>. The ESP32 GPIO sends the small signal; the transistor uses that to switch the motor's bigger current.</p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">Base (B)</div>
+        <div class="c-fn">Control input</div>
+        <p>Connected to GPIO 26 via a 1 k&Omega; resistor. A small current here turns the switch on.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Collector (C)</div>
+        <div class="c-fn">High-current input</div>
+        <p>Connected to the motor's negative terminal. Motor current flows in here from 5 V.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Emitter (E)</div>
+        <div class="c-fn">Current exits</div>
+        <p>Connected to GND. Current flows out here, completing the motor's circuit through ground.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Flyback diode</div>
+        <div class="c-fn">Spike protection</div>
+        <p>Motors generate a reverse voltage spike when they stop. The 1N4001 diode across the motor absorbs this and protects the transistor.</p>
+      </div>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">PWM controls speed</div>
+        <p>By switching the transistor on and off very rapidly (using PWM), you vary how much average current reaches the motor — and that controls its speed. Full on = full speed; 50% duty cycle = roughly half speed.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-motor">
+        <input type="checkbox" class="done-check" id="check-motor" onchange="onCheckChange(this)">
+        <span class="done-text">Got it — next!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       4. LEDC PWM
+  ═══════════════════════════════════════════ -->
+  <section id="signals">
+    <h2><span class="num">4</span> LEDC PWM</h2>
+    <p>The ESP32 has a hardware peripheral called <strong>LEDC</strong> (LED Control) that generates PWM signals on any GPIO. You set three things: a <strong>channel</strong> (0–15), a <strong>frequency</strong> in Hz, and a <strong>resolution</strong> in bits. Then you call <code>ledcWrite()</code> with a duty-cycle value to set speed.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Function</th><th>What it does</th><th>Typical value</th></tr></thead>
+        <tbody>
+          <tr><td><code>ledcSetup(ch, freq, bits)</code></td><td>Configure a PWM channel</td><td><code>ledcSetup(0, 1000, 8)</code></td></tr>
+          <tr><td><code>ledcAttachPin(pin, ch)</code></td><td>Connect a GPIO to that channel</td><td><code>ledcAttachPin(26, 0)</code></td></tr>
+          <tr><td><code>ledcWrite(ch, duty)</code></td><td>Set the duty cycle</td><td><code>ledcWrite(0, 128)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The speed range (8-bit, 0 – 255)</h3>
+    <div class="throttle-diagram">
+      <div class="throttle-row">
+        <span class="throttle-label">Stopped</span>
+        <div class="throttle-bar-wrap"><div class="throttle-fill" style="width:2%">&nbsp;</div></div>
+        <span class="throttle-val">0</span>
+      </div>
+      <div class="throttle-row">
+        <span class="throttle-label">Gentle</span>
+        <div class="throttle-bar-wrap"><div class="throttle-fill" style="width:20%">20%</div></div>
+        <span class="throttle-val">51</span>
+      </div>
+      <div class="throttle-row">
+        <span class="throttle-label">Half speed</span>
+        <div class="throttle-bar-wrap"><div class="throttle-fill" style="width:50%">50%</div></div>
+        <span class="throttle-val">128</span>
+      </div>
+      <div class="throttle-row">
+        <span class="throttle-label">Full speed</span>
+        <div class="throttle-bar-wrap"><div class="throttle-fill" style="width:100%">100%</div></div>
+        <span class="throttle-val">255</span>
+      </div>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">Why 8-bit?</div>
+        <p>8 bits gives you 2<sup>8</sup> = 256 steps (0–255). That's plenty of speed resolution for a motor. The frequency (1000 Hz) means the transistor switches 1000 times per second — fast enough that the motor sees smooth average power, not individual pulses.</p>
+      </div>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">No library to install</div>
+        <p>LEDC is built directly into the ESP32 Arduino core. You don't need <code>#include</code> — just call <code>ledcSetup()</code>, <code>ledcAttachPin()</code>, and <code>ledcWrite()</code> directly.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-signals">
+        <input type="checkbox" class="done-check" id="check-signals" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       5. THE MOTOR CIRCUIT
+  ═══════════════════════════════════════════ -->
+  <section id="circuit">
+    <h2><span class="num">5</span> The Motor Circuit</h2>
+    <p>Before wiring, here's the complete circuit at a glance. Every component has one job:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>NPN transistor (2N2222)</td><td>Electronic switch — GPIO turns it on/off at PWM speed</td></tr>
+          <tr><td>1 k&Omega; resistor</td><td>Limits current into the transistor Base — protects the GPIO pin</td></tr>
+          <tr><td>1N4001 diode</td><td>Flyback protection — absorbs the voltage spike when the motor suddenly stops</td></tr>
+          <tr><td>5 V motor</td><td>Driven by the transistor — receives current when the switch is on</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLACEHOLDER: Circuit diagram -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Diagram</span>
+      <span class="ph-label">DC motor transistor circuit</span>
+      <span class="ph-hint">Replace with: schematic showing ESP32 GPIO 26 → 1kΩ → transistor B; motor from 5V to transistor C; transistor E to GND; 1N4001 across motor (cathode to +, anode to −)</span>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — LEDC setup in setup()</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="kw">const int</span> <span class="cn">MOTOR_PIN</span> <span class="pn">=</span> <span class="num">26</span><span class="pn">;</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="fn">ledcSetup</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">1000</span><span class="pn">,</span> <span class="num">8</span><span class="pn">);</span>         <span class="cm">// channel 0, 1 kHz, 8-bit (0–255)</span>
+  <span class="fn">ledcAttachPin</span><span class="pn">(</span><span class="cn">MOTOR_PIN</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>   <span class="cm">// bind GPIO 26 to channel 0</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>               <span class="cm">// start stopped</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-circuit">
+        <input type="checkbox" class="done-check" id="check-circuit" onchange="onCheckChange(this)">
+        <span class="done-text">Circuit understood — next!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       6. WIRE IT UP
+  ═══════════════════════════════════════════ -->
+  <section id="wiring">
+    <h2><span class="num">6</span> Wire It Up</h2>
+    <p>Build the transistor circuit on your breadboard, then connect it to the ESP32. Take your time — double-check each connection before moving on.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>From</th><th>To</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Motor (+) terminal</td><td><strong>5V</strong> pin on ESP32</td><td>Red / positive motor wire</td></tr>
+          <tr><td>Motor (−) terminal</td><td>Transistor <strong>Collector (C)</strong> leg</td><td>Motor's negative terminal goes into the transistor</td></tr>
+          <tr><td>Transistor <strong>Emitter (E)</strong> leg</td><td><strong>GND</strong> pin on ESP32</td><td>Current exits to ground</td></tr>
+          <tr><td>1N4001 diode</td><td>Across motor terminals</td><td>Cathode (banded end) → motor (+); Anode → motor (−)</td></tr>
+          <tr><td><strong>GPIO 26</strong> on ESP32</td><td>1 k&Omega; resistor → Transistor <strong>Base (B)</strong> leg</td><td>Resistor sits between GPIO and Base</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLACEHOLDER: Wiring diagram -->
+    <div class="media-ph ph-lg" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Diagram</span>
+      <span class="ph-label">Wiring diagram — DC motor transistor circuit</span>
+      <span class="ph-hint">Replace with: Fritzing or drawn diagram showing ESP32 GPIO 26 → 1kΩ → transistor Base; Motor (+) to 5V; Motor (−) to Collector; Emitter to GND; 1N4001 diode across motor (banded end to +)</span>
+    </div>
+
+    <h3>Tick each connection as you make it</h3>
+
+    <div class="install-group">
+      <div class="install-item" id="wire-item-1">
+        <input type="checkbox" class="install-check" id="check-wire-1" onchange="toggleWireDone(this); checkWiringProgress()">
+        <span class="install-item-text">Motor <strong>(+)</strong> → <strong>5V</strong> pin on ESP32; Motor <strong>(−)</strong> → Transistor <strong>Collector (C)</strong> leg</span>
+      </div>
+      <div class="install-item" id="wire-item-2">
+        <input type="checkbox" class="install-check" id="check-wire-2" onchange="toggleWireDone(this); checkWiringProgress()">
+        <span class="install-item-text">Transistor <strong>Emitter (E)</strong> → <strong>GND</strong> pin on ESP32; 1N4001 diode placed across motor terminals (banded end to +)</span>
+      </div>
+      <div class="install-item" id="wire-item-3">
+        <input type="checkbox" class="install-check" id="check-wire-3" onchange="toggleWireDone(this); checkWiringProgress()">
+        <span class="install-item-text"><strong>GPIO 26</strong> → 1 k&Omega; resistor → Transistor <strong>Base (B)</strong> leg</span>
+      </div>
+    </div>
+
+    <div id="wiring-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Circuit wired!</div>
+        <p>Motor, transistor, resistor, and diode are all connected. GPIO 26 is controlling the Base — you're ready to load the sketch.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="wiring-done-label" for="check-wiring">
+        <input type="checkbox" class="done-check" id="check-wiring" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="wiring-done-text">Connect all wires first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       7. THE MOTOR SKETCH
+  ═══════════════════════════════════════════ -->
+  <section id="code">
+    <h2><span class="num">7</span> The Motor Sketch</h2>
+    <p>Here's the full sketch. Read through every line — each one is explained in the comments. No libraries to install; LEDC is built into the ESP32 Arduino core.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — WaveKit M3 Motor Sketch</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="cm">// WaveKit M3 — DC Motor Speed Control</span>
+<span class="cm">// Uses the ESP32's built-in LEDC peripheral — no library needed</span>
+
+<span class="kw">const int</span> <span class="cn">MOTOR_PIN</span> <span class="pn">=</span> <span class="num">26</span><span class="pn">;</span>  <span class="cm">// Signal wire → GPIO 26 → resistor → transistor Base</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="cm">// Configure LEDC channel 0: 1 kHz frequency, 8-bit resolution (0–255)</span>
+  <span class="fn">ledcSetup</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">1000</span><span class="pn">,</span> <span class="num">8</span><span class="pn">);</span>
+
+  <span class="cm">// Connect GPIO 26 to channel 0</span>
+  <span class="fn">ledcAttachPin</span><span class="pn">(</span><span class="cn">MOTOR_PIN</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>
+
+  <span class="cm">// Start with motor stopped (duty cycle = 0)</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">128</span><span class="pn">);</span>   <span class="cm">// 50% speed — motor spins for 3 seconds</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">3000</span><span class="pn">);</span>
+
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>     <span class="cm">// Stop — pause for 2 seconds</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">2000</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <h3>Key functions at a glance</h3>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="c-label">ledcSetup()</div>
+        <div class="c-fn">ledcSetup(0, 1000, 8)</div>
+        <p>Channel 0, 1 kHz, 8-bit. Duty range = 0 (off) to 255 (full).</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">ledcAttachPin()</div>
+        <div class="c-fn">ledcAttachPin(26, 0)</div>
+        <p>Binds GPIO 26 to channel 0 — now ledcWrite controls that pin.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Half speed</div>
+        <div class="c-fn">ledcWrite(0, 128)</div>
+        <p>128 / 255 ≈ 50% duty cycle — a safe first-test speed.</p>
+      </div>
+      <div class="concept-card">
+        <div class="c-label">Stop</div>
+        <div class="c-fn">ledcWrite(0, 0)</div>
+        <p>Duty cycle = 0 → transistor fully off → motor gets no current.</p>
+      </div>
+    </div>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">No library, no arming</div>
+        <p>Unlike the servo from Module 2, LEDC doesn't need <code>#include</code> — it's part of the ESP32 core. And unlike an ESC, a transistor needs no arming sequence. Just set the duty cycle and go.</p>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-code">
+        <input type="checkbox" class="done-check" id="check-code" onchange="onCheckChange(this)">
+        <span class="done-text">Done — ready to continue!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       9. CHECK YOUR KNOWLEDGE (MCQ)
+  ═══════════════════════════════════════════ -->
+  <section id="typecheck">
+    <h2><span class="num">9</span> Check Your Knowledge</h2>
+    <p>Five questions about DC motors and LEDC PWM. You need all five correct to continue — wrong answers highlight the right one so you can learn from them.</p>
+
+    <div class="mcq-score-row">
+      <span class="mcq-score-chip" id="mcq-score-chip">0 / 5 correct</span>
+    </div>
+
+    <div class="mcq-list">
+
+      <!-- Q1 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q1 — Why can't you connect a 5V DC motor directly to a GPIO pin?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> GPIO pins only output 3.3V, not 5V</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> A motor draws 200–600 mA, but a GPIO can only source ~40 mA</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> DC motors need AC current to spin</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> GPIO pins can't output PWM signals</button>
+        </div>
+        <div class="mcq-explanation"><strong>Current limit</strong> is the reason. A GPIO pin is designed to control small signals — not power loads. Connecting a motor directly risks either getting no movement (not enough current) or permanently damaging the ESP32. That's why we use a transistor: it's a current amplifier that uses the tiny GPIO signal to switch a much larger motor current.</div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q2 — In this line, what does the <code>8</code> represent?</p>
+        <div class="mcq-context"><span class="fn">ledcSetup</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">1000</span><span class="pn">,</span> <span class="mcq-blank">8</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> The GPIO pin number</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> The PWM frequency in Hz</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> The bit resolution — giving a duty range of 0 to 255</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> The number of PWM channels available</button>
+        </div>
+        <div class="mcq-explanation"><strong>Bit resolution</strong> is correct. 8 bits means 2<sup>8</sup> = 256 steps, so the duty cycle runs from 0 (fully off) to 255 (fully on). The three arguments in order are: channel (0), frequency in Hz (1000), and resolution in bits (8). Each controls something different.</div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q3 — Which transistor leg connects to the GPIO pin (via the 1 kΩ resistor)?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Collector (C)</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> Base (B)</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> Emitter (E)</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> Any leg — it doesn't matter</button>
+        </div>
+        <div class="mcq-explanation"><strong>Base (B)</strong> is the control input. A tiny current into the Base turns the transistor "on," letting large current flow from Collector to Emitter. The 1 kΩ resistor limits the GPIO current to a safe level before it reaches the Base. Collector connects to the motor's negative terminal; Emitter connects to GND.</div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q4 — What speed does <code>ledcWrite(0, 128)</code> give the motor?</p>
+        <div class="mcq-context"><span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="mcq-blank">128</span><span class="pn">);</span></div>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> Full speed (100%)</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> Stopped (0%)</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> ~50% speed</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> ~25% speed</button>
+        </div>
+        <div class="mcq-explanation"><strong>~50% speed</strong> is correct. With 8-bit resolution, the full range is 0–255. 128 ÷ 255 ≈ 50%. At this duty cycle the transistor switches on and off 1000 times per second, with the pulse "on" for exactly half of each cycle — giving the motor roughly half its maximum power.</div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="mcq-card">
+        <p class="mcq-q">Q5 — What is the flyback diode (1N4001) for in this circuit?</p>
+        <div class="mcq-options">
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> It increases the motor's speed</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> It acts as the main power switch for the motor</button>
+          <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> It converts AC current to DC for the motor</button>
+          <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">D</span> It absorbs the reverse voltage spike when the motor suddenly stops</button>
+        </div>
+        <div class="mcq-explanation"><strong>Flyback protection</strong> is correct. When the motor suddenly stops, its spinning coils act like a generator and push a brief reverse voltage spike back into the circuit. Without the diode, this spike can destroy the transistor or the ESP32. The 1N4001 is placed across the motor terminals (cathode to +) to provide a safe path for that reverse current to dissipate harmlessly.</div>
+      </div>
+
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="typecheck-done-label" for="check-typecheck">
+        <input type="checkbox" class="done-check" id="check-typecheck" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="typecheck-done-text">Answer all 5 correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       8. UPLOAD & TEST
+  ═══════════════════════════════════════════ -->
+  <section id="upload">
+    <h2><span class="num">8</span> Upload &amp; Test</h2>
+
+    <div class="box warn">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="box-body">
+        <div class="box-title">Keep the propeller off for this first test</div>
+        <p>Confirm the motor spins reliably on the bare shaft before attaching anything to the shaft.</p>
+      </div>
+    </div>
+
+    <p>Fill in the four blanks using what you learned in this module, then copy and paste the complete sketch into Arduino IDE.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — fill in the blanks, then copy</span>
+        <button class="copy-btn" id="copy-upload-btn" onclick="copyFilledCode(this)" disabled>Copy</button>
+      </div>
+      <pre><span class="cm">// WaveKit M3 — DC Motor Speed Control</span>
+
+<span class="kw">const int</span> MOTOR_PIN <span class="pn">=</span> <input class="code-blank" data-answer="26" placeholder="??" oninput="checkUploadBlanks()" size="2" aria-label="GPIO pin number"><span class="pn">;</span>  <span class="cm">// which GPIO connects to the transistor Base (via resistor)?</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="cm">// Channel 0, ??? Hz frequency, 8-bit resolution (0–255)</span>
+  <span class="fn">ledcSetup</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <input class="code-blank" data-answer="1000" placeholder="????" oninput="checkUploadBlanks()" size="4" aria-label="PWM frequency in Hz"><span class="pn">,</span> <span class="num">8</span><span class="pn">);</span>
+  <span class="fn">ledcAttachPin</span><span class="pn">(</span>MOTOR_PIN<span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>   <span class="cm">// bind GPIO to channel 0</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>               <span class="cm">// start stopped</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <input class="code-blank" data-answer="128" placeholder="???" oninput="checkUploadBlanks()" size="3" aria-label="duty cycle for 50 percent speed"><span class="pn">);</span>    <span class="cm">// what duty cycle gives ~50% speed?</span>
+  <span class="fn">delay</span><span class="pn">(</span><input class="code-blank" data-answer="3000" placeholder="????" oninput="checkUploadBlanks()" size="4" aria-label="run duration in ms"><span class="pn">);</span>              <span class="cm">// run for how many ms?</span>
+
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="num">0</span><span class="pn">);</span>               <span class="cm">// stop</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">2000</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+    </div>
+
+    <div id="upload-blanks-ok" class="box ok" style="display:none">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">All blanks correct!</div>
+        <p>Click <strong>Copy</strong> &rarr; paste into Arduino IDE &rarr; select <em>ESP32 Dev Module</em> board &rarr; upload.</p>
+      </div>
+    </div>
+
+    <ol class="steps" style="margin-top:16px">
+      <li><span>Paste into Arduino IDE — confirm board is <strong>ESP32 Dev Module</strong> and port is correct</span></li>
+      <li><span>Click <strong>Upload (&#8594;)</strong></span></li>
+      <li><span>After upload succeeds, the motor should spin at ~50% for 3 s, stop for 2 s, and repeat</span></li>
+      <li><span>Adjust the duty cycle (try 64, 200, 255) and observe the speed change</span></li>
+    </ol>
+
+    <!-- PLACEHOLDER: GIF of motor spinning -->
+    <div class="media-ph ph-gif ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="ph-type">GIF</span>
+      <span class="ph-label">DC motor spinning after upload</span>
+      <span class="ph-hint">Replace with: GIF showing bare-shaft 5V DC motor spinning at ~50% speed then stopping on the bench (transistor circuit visible on breadboard)</span>
+    </div>
+
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Motor doesn&rsquo;t spin at all?</summary>
+      <div class="stuck-body">
+        <p>Check GPIO 26 is connected to the <strong>Base</strong> via the 1 kΩ resistor (not directly). Confirm motor (+) is on <strong>5V</strong> and Emitter is on <strong>GND</strong>. Make sure <code>ledcAttachPin(MOTOR_PIN, 0)</code> runs in <code>setup()</code>.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Motor runs but won&rsquo;t stop?</summary>
+      <div class="stuck-body">
+        <p>Make sure <code>ledcWrite(0, 0)</code> is correctly calling channel <strong>0</strong> (same channel used in <code>ledcSetup</code> and <code>ledcAttachPin</code>). If the channels don't match, the write has no effect.</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Motor gets warm or smells? Circuit feels hot?</summary>
+      <div class="stuck-body">
+        <p>Stop immediately. Check for a short circuit — motor terminals touching, or Collector and Emitter legs swapped. The 1N4001 diode must be across the motor terminals (not the transistor).</p>
+      </div>
+    </details>
+    <details class="stuck-details">
+      <summary class="stuck-summary">&#9888; Upload fails with &ldquo;Connecting&hellip;&rdquo;?</summary>
+      <div class="stuck-body">
+        <p>Hold <strong>BOOT</strong> while clicking Upload; release when dots appear in the console.</p>
+      </div>
+    </details>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label locked-label" id="upload-done-label" for="check-upload">
+        <input type="checkbox" class="done-check" id="check-upload" onchange="onCheckChange(this)" disabled>
+        <span class="done-text" id="upload-done-text">Fill all blanks correctly first</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       10. CHALLENGE — SPEED RAMP
+  ═══════════════════════════════════════════ -->
+  <section id="challenge">
+    <h2><span class="num">10</span> Challenge — Smooth Speed Ramp</h2>
+    <p>Right now the motor <em>jumps</em> from 0 to 128 instantly. Can you make the speed <strong>ramp up and back down gradually</strong>? Use a <code>for</code> loop to step through duty-cycle values one increment at a time.</p>
+
+    <div class="box tip">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">The goal</div>
+        <p>Replace the <code>ledcWrite(0, 128)</code> jump in <code>loop()</code> with two <code>for</code> loops — one <em>ramping up</em> (0 → 200) and one <em>ramping down</em> (200 → 0). Each step adds a small <code>delay()</code> to spread the ramp smoothly over time.</p>
+      </div>
+    </div>
+
+    <p>Have a go at writing the loops yourself before revealing the hint:</p>
+
+    <label class="honor-label" for="check-honor">
+      <input type="checkbox" class="honor-check" id="check-honor" onchange="onHonorCheck()">
+      I've had a proper go at writing the ramp loops myself
+    </label>
+
+    <button class="reveal-btn" id="reveal-btn" onclick="revealSolution()">
+      &#128161; Show the hint
+    </button>
+
+    <div class="solution-reveal" id="solution-reveal">
+      <div class="code-block" style="background:#fff;">
+        <div class="code-header">
+          <span class="code-lang">C++ — hint: smooth speed ramp in loop()</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><span class="cm">// Replace the contents of loop() with these two ramps:</span>
+
+<span class="cm">// Ramp UP: duty 0 → 200 (~78% speed)</span>
+<span class="kw">for</span> <span class="pn">(</span><span class="kw">int</span> <span class="tx">speed</span> <span class="pn">=</span> <span class="num">0</span><span class="pn">;</span> <span class="tx">speed</span> <span class="pn">&lt;=</span> <span class="num">200</span><span class="pn">;</span> <span class="tx">speed</span> <span class="pn">+=</span> <span class="num">5</span><span class="pn">) {</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="tx">speed</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">50</span><span class="pn">);</span>   <span class="cm">// try 20 for a faster ramp, 100 for slower</span>
+<span class="pn">}</span>
+<span class="fn">delay</span><span class="pn">(</span><span class="num">2000</span><span class="pn">);</span>    <span class="cm">// hold at speed 200 for 2 seconds</span>
+
+<span class="cm">// Ramp DOWN: duty 200 → 0</span>
+<span class="kw">for</span> <span class="pn">(</span><span class="kw">int</span> <span class="tx">speed</span> <span class="pn">=</span> <span class="num">200</span><span class="pn">;</span> <span class="tx">speed</span> <span class="pn">&gt;=</span> <span class="num">0</span><span class="pn">;</span> <span class="tx">speed</span> <span class="pn">-=</span> <span class="num">5</span><span class="pn">) {</span>
+  <span class="fn">ledcWrite</span><span class="pn">(</span><span class="num">0</span><span class="pn">,</span> <span class="tx">speed</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">50</span><span class="pn">);</span>
+<span class="pn">}</span>
+<span class="fn">delay</span><span class="pn">(</span><span class="num">2000</span><span class="pn">);</span>    <span class="cm">// pause at stop before repeating</span></pre>
+      </div>
+      <div class="box ok" style="margin-top:12px;">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="box-body">
+          <div class="box-title">Try tweaking the step size</div>
+          <p>Change <code>+= 5</code> to <code>+= 10</code> for a faster ramp, or <code>+= 2</code> for an ultra-smooth one. Raise the top speed from <code>200</code> to <code>255</code> for full power — but test at a lower value first and confirm the motor and circuit stay cool.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-challenge">
+        <input type="checkbox" class="done-check" id="check-challenge" onchange="onCheckChange(this)">
+        <span class="done-text">Challenge done!</span>
+      </label>
+      <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       12. WHAT'S NEXT
+  ═══════════════════════════════════════════ -->
+  <section id="next">
+    <h2><span class="num">11</span> What's Next</h2>
+
+    <div class="box ok">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="box-body">
+        <div class="box-title">Module 3 complete!</div>
+        <p>You can power the boat. You've wired a transistor circuit, generated LEDC PWM from the ESP32, and controlled a 5V DC motor's speed with a single number (0–255). The boat now has both steering (M2) and drive (M3).</p>
+      </div>
+    </div>
+
+    <p>In <strong>Module 4</strong> you'll make the ESP32 host its own WiFi network — turning your phone's browser into the boat's controller panel.</p>
+
+    <a class="next-banner" href="WaveKit_M4_WiFi.html">
+      <div>
+        <div class="nb-label">Up next</div>
+        <div class="nb-title">Module 4 — WiFi Access Point</div>
+        <div class="nb-desc">Host a WiFi network from the ESP32 so your phone can connect directly</div>
+      </div>
+      <svg class="nb-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
+
+    <div class="section-footer">
+      <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+      <label class="done-label" for="check-next">
+        <input type="checkbox" class="done-check" id="check-next" onchange="onCheckChange(this)">
+        <span class="done-text">Module 3 complete!</span>
+      </label>
+      <button class="btn-next hidden" onclick="nextStep()">Next &#8594;</button>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+/* ── Copy code ───────────────────────────────── */
+function copyCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Wizard ──────────────────────────────────── */
+var DEBUG_MODE = false;
+
+var SECTIONS = ['learn','parts','motor','signals','circuit','wiring','code','upload','typecheck','challenge','next'];
+var NAMES = {
+  learn:    "What You'll Learn",
+  parts:    "What You Need",
+  motor:    "Meet the Motor",
+  signals:  "LEDC PWM",
+  circuit:  "The Motor Circuit",
+  wiring:   "Wire It Up",
+  code:     "The Motor Sketch",
+  upload:   "Upload & Test",
+  typecheck:"Check Your Knowledge",
+  challenge:"Challenge",
+  next:     "What's Next"
+};
+
+var currentStep  = 0;
+var unlockedUpTo = 0;
+var dots = document.querySelectorAll('.step-dot');
+
+function updateDots() {
+  dots.forEach(function(dot, i) {
+    var sec   = document.getElementById(SECTIONS[i]);
+    var check = sec && sec.querySelector('.done-check');
+    var isDone   = check && check.checked;
+    var isActive = i === currentStep;
+    var isLocked = i > unlockedUpTo;
+    dot.classList.toggle('active', isActive);
+    dot.classList.toggle('done',   isDone && !isActive);
+    dot.classList.toggle('locked', isLocked);
+    dot.disabled    = isLocked;
+    dot.textContent = (isDone && !isActive) ? '✓' : String(i + 1);
+  });
+}
+
+function showStep(n, force) {
+  force = force || false;
+  if (n < 0 || n >= SECTIONS.length) return;
+  if (!force && n > unlockedUpTo) return;
+  SECTIONS.forEach(function(id, i) {
+    document.getElementById(id).classList.toggle('active', i === n);
+  });
+  var lbl = document.getElementById('current-section-label');
+  if (lbl) lbl.textContent = NAMES[SECTIONS[n]];
+  var hero = document.querySelector('.hero');
+  if (hero) hero.style.display = (n === 0) ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateDots();
+}
+
+function nextStep() { showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 0) showStep(currentStep - 1, true); }
+
+function onCheckChange(checkbox) {
+  var sec     = checkbox.closest('section');
+  var lbl     = checkbox.closest('.done-label');
+  var nextBtn = sec && sec.querySelector('.btn-next');
+  var idx     = SECTIONS.indexOf(sec.id);
+  lbl.classList.toggle('checked', checkbox.checked);
+  if (checkbox.checked) {
+    unlockedUpTo = Math.max(unlockedUpTo, idx + 1);
+    if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+  } else {
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  updateDots();
+}
+
+dots.forEach(function(dot, i) {
+  dot.addEventListener('click', function(){ showStep(i); });
+});
+
+/* ── Wiring gate ─────────────────────────────── */
+function toggleWireDone(cb) {
+  var item = cb.closest('.install-item');
+  if (item) item.classList.toggle('item-done', cb.checked);
+}
+
+function checkWiringProgress() {
+  if (DEBUG_MODE) return;
+  var all = ['check-wire-1','check-wire-2','check-wire-3'].every(function(id) {
+    return document.getElementById(id).checked;
+  });
+  var doneCheck = document.getElementById('check-wiring');
+  var doneLbl   = document.getElementById('wiring-done-label');
+  var doneText  = document.getElementById('wiring-done-text');
+  var wiringOk  = document.getElementById('wiring-ok');
+  if (all) {
+    doneCheck.disabled = false;
+    doneLbl.classList.remove('locked-label');
+    doneText.textContent = 'All wires confirmed — tick to continue!';
+    if (wiringOk) wiringOk.style.display = 'flex';
+  } else {
+    doneCheck.disabled = true;
+    doneLbl.classList.add('locked-label');
+    doneText.textContent = 'Connect all wires first';
+    if (wiringOk) wiringOk.style.display = 'none';
+    if (doneCheck.checked) {
+      doneCheck.checked = false;
+      doneLbl.classList.remove('checked');
+      var nxt = document.querySelector('#wiring .btn-next');
+      if (nxt) nxt.disabled = true;
+      var idx = SECTIONS.indexOf('wiring');
+      if (unlockedUpTo > idx) unlockedUpTo = idx;
+      updateDots();
+    }
+  }
+}
+
+/* ── MCQ ─────────────────────────────────────── */
+var mcqScore = 0;
+function selectOption(btn, isCorrect) {
+  var card = btn.closest('.mcq-card');
+  if (card.dataset.answered) return;
+  card.dataset.answered = 'true';
+  card.querySelectorAll('.mcq-opt').forEach(function(b) { b.disabled = true; });
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    var correct = card.querySelector('[data-correct="true"]');
+    if (correct) correct.classList.add('correct');
+  }
+  card.querySelector('.mcq-explanation').classList.add('show');
+  if (isCorrect) {
+    mcqScore++;
+    var chip = document.getElementById('mcq-score-chip');
+    chip.textContent = mcqScore + ' / 5 correct';
+    if (mcqScore === 5) {
+      chip.classList.add('all-ok');
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      var dtxt = document.getElementById('typecheck-done-text');
+      if (dc)   { dc.disabled = false; }
+      if (dlbl) { dlbl.classList.remove('locked-label'); }
+      if (dtxt) { dtxt.textContent = 'All correct — continue!'; }
+    }
+  }
+}
+
+/* ── Upload fill-in blanks ───────────────────── */
+function checkUploadBlanks() {
+  if (DEBUG_MODE) return;
+  var blanks = document.querySelectorAll('#upload .code-blank');
+  var allCorrect = blanks.length > 0;
+  blanks.forEach(function(inp) {
+    var val = inp.value.trim(), ans = inp.dataset.answer;
+    if (val === ans) { inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong'); }
+    else if (val !== '') { inp.classList.add('blank-wrong'); inp.classList.remove('blank-correct'); allCorrect = false; }
+    else { inp.classList.remove('blank-correct','blank-wrong'); allCorrect = false; }
+  });
+  var copyBtn = document.getElementById('copy-upload-btn');
+  var okBox   = document.getElementById('upload-blanks-ok');
+  var dc      = document.getElementById('check-upload');
+  var dlbl    = document.getElementById('upload-done-label');
+  var dtxt    = document.getElementById('upload-done-text');
+  if (allCorrect) {
+    if (copyBtn) copyBtn.disabled = false;
+    if (okBox)   okBox.style.display = 'flex';
+    if (dc)      dc.disabled = false;
+    if (dlbl)    dlbl.classList.remove('locked-label');
+    if (dtxt)    dtxt.textContent = 'Sketch filled in — upload it!';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('upload') + 1);
+    updateDots();
+  } else {
+    if (copyBtn) copyBtn.disabled = true;
+    if (okBox)   okBox.style.display = 'none';
+    if (dc && !dc.checked) dc.disabled = true;
+    if (dlbl && !dc.checked) dlbl.classList.add('locked-label');
+  }
+}
+function copyFilledCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  function getText(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeName === 'INPUT') return n.value;
+    var t = ''; n.childNodes.forEach(function(c){ t += getText(c); }); return t;
+  }
+  navigator.clipboard.writeText(getText(pre)).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Challenge honor gate ────────────────────── */
+function onHonorCheck() {
+  var checked = document.getElementById('check-honor').checked;
+  document.getElementById('reveal-btn').style.display = checked ? 'block' : 'none';
+}
+function revealSolution() {
+  document.getElementById('solution-reveal').style.display = 'block';
+  var btn = document.getElementById('reveal-btn');
+  btn.disabled = true;
+  btn.textContent = '✓ Hint shown below';
+}
+
+/* ── Debug toggle ────────────────────────────── */
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  var btn    = document.getElementById('debug-toggle-btn');
+  var banner = document.getElementById('debug-banner');
+  if (DEBUG_MODE) {
+    unlockedUpTo = SECTIONS.length - 1;
+    document.querySelectorAll('.btn-next').forEach(function(b) { b.disabled = false; });
+    document.querySelectorAll('.done-check').forEach(function(c) { c.disabled = false; });
+    document.querySelectorAll('.done-label').forEach(function(l) { l.classList.remove('locked-label'); });
+    document.querySelectorAll('#upload .code-blank').forEach(function(inp) {
+      inp.value = inp.dataset.answer; inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong');
+    });
+    checkUploadBlanks();
+    btn.textContent = '🔓 Debug: ON';
+    btn.classList.add('debug-on');
+    banner.style.display = 'block';
+  } else {
+    unlockedUpTo = 0;
+    SECTIONS.forEach(function(id, i) {
+      var sec = document.getElementById(id);
+      var doneCheck = sec && sec.querySelector('.done-check');
+      var nextBtn   = sec && sec.querySelector('.btn-next');
+      if (doneCheck && doneCheck.checked) {
+        unlockedUpTo = Math.max(unlockedUpTo, i + 1);
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+      } else {
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = true;
+      }
+    });
+    checkWiringProgress();
+    checkUploadBlanks();
+    if (mcqScore < 5) {
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      if (dc && !dc.checked)   { dc.disabled = true; }
+      if (dlbl && !document.getElementById('check-typecheck').checked) { dlbl.classList.add('locked-label'); }
+    }
+    btn.textContent = '🔒 Debug: OFF';
+    btn.classList.remove('debug-on');
+    banner.style.display = 'none';
+  }
+  updateDots();
+}
+
+/* ── Init ────────────────────────────────────── */
+updateDots();
+</script>
+
+<div id="debug-banner" class="debug-banner" role="status" aria-live="polite" style="display:none">
+  ⚠ DEBUG MODE — all sections unlocked. Click "Debug: ON" to restore normal student gating.
+</div>
+</body>
+</html>
