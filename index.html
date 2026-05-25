@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WaveKit — M1: Your First Blink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #EEF2FF;
+  --surface:    #FFFFFF;
+  --surface2:   #F5F3FF;
+  --border:     #C7D2FE;
+  --primary:    #4F46E5;
+  --primary-l:  #818CF8;
+  --primary-d:  #3730A3;
+  --green:      #16A34A;
+  --green-l:    #22C55E;
+  --orange:     #D97706;
+  --red:        #DC2626;
+  --text:       #312E81;
+  --text-body:  #1E1B4B;
+  --text-muted: #6B7280;
+  --code-bg:    #F8F7FF;
+  --shadow:     0 4px 0 #C7D2FE, 0 6px 20px rgba(79,70,229,0.08);
+  --mono:       "JetBrains Mono", "Courier New", monospace;
+  --sans:       "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display:    "Fredoka", "Nunito", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text-body); line-height: 1.7; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Top nav ─────────────────────────────── */
+.top-nav { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 2px solid var(--border); box-shadow: 0 2px 12px rgba(79,70,229,0.07); }
+.top-nav-inner { max-width: 980px; margin: 0 auto; padding: 0 28px; height: 58px; display: flex; align-items: center; gap: 16px; }
+.nav-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; text-decoration: none; }
+.brand-name { font-family: var(--display); font-size: 19px; font-weight: 600; color: var(--primary); letter-spacing: 0.2px; }
+.brand-chip { background: var(--bg); border: 1.5px solid var(--border); border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; color: var(--primary); font-family: var(--sans); white-space: nowrap; }
+.step-dots { display: flex; align-items: center; flex: 1; justify-content: center; gap: 0; }
+.step-dot { position: relative; width: 28px; height: 28px; border-radius: 50%; background: #E0E7FF; color: var(--primary-l); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--display); flex-shrink: 0; transition: background 0.2s, color 0.2s, box-shadow 0.2s; cursor: pointer; border: none; }
+.step-dot::after { content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 8px; height: 2px; background: var(--border); }
+.step-dot:last-child::after { display: none; }
+.step-dot.active { background: var(--primary); color: #fff; box-shadow: 0 2px 10px rgba(79,70,229,0.35); }
+.step-dot.done { background: #22C55E; color: #fff; }
+.step-dot:hover:not(.active):not(.locked) { background: #C7D2FE; color: var(--primary-d); }
+.step-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.step-dot.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-section { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; display: none; }
+
+/* ── Page ─────────────────────────────────── */
+.page { max-width: 980px; margin: 0 auto; padding: 36px 28px 100px; }
+
+/* ── Hero ─────────────────────────────────── */
+.hero { background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 55%, #F0FDF4 100%); border: 2px solid var(--border); border-radius: 24px; padding: 40px 36px; margin-bottom: 28px; position: relative; overflow: hidden; }
+.hero::before { content: ""; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.hero::after { content: ""; position: absolute; bottom: -40px; left: 40px; width: 130px; height: 130px; background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+.mod-badge { display: inline-block; background: var(--primary); color: #fff; border-radius: 20px; padding: 3px 14px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; font-family: var(--sans); }
+.hero h1 { font-family: var(--display); font-size: 34px; font-weight: 700; color: var(--text); line-height: 1.15; margin-bottom: 10px; }
+.hero-desc { color: #5B52B5; font-size: 15px; max-width: 520px; font-weight: 600; margin-bottom: 0; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.meta-chip { background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 7px 14px; font-size: 12px; }
+.meta-chip .mlabel { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 2px; font-weight: 700; }
+.meta-chip .mvalue { color: var(--primary-d); font-weight: 700; }
+
+/* ── Section cards ────────────────────────── */
+section { background: var(--surface); border-radius: 20px; padding: 36px 40px; margin-bottom: 20px; box-shadow: var(--shadow); scroll-margin-top: 76px; display: none; }
+section.active { display: block; }
+
+/* ── Headings ─────────────────────────────── */
+h2 { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 14px; font-weight: 700; flex-shrink: 0; box-shadow: 0 3px 0 var(--primary-d); }
+h3 { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--primary); margin: 24px 0 12px; display: flex; align-items: center; gap: 6px; }
+h3::before { content: ''; display: inline-block; width: 4px; height: 16px; background: var(--primary-l); border-radius: 2px; flex-shrink: 0; }
+p { margin-bottom: 14px; color: var(--text-body); max-width: 68ch; }
+p.wide { max-width: none; }
+
+/* ── Lists ────────────────────────────────── */
+ul, ol { padding-left: 24px; margin-bottom: 14px; }
+li { margin-bottom: 7px; color: var(--text-body); }
+li::marker { color: var(--primary); font-weight: 700; }
+
+/* ── Inline code ──────────────────────────── */
+code { font-family: var(--mono); background: #EEF2FF; border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.85em; color: var(--primary-d); }
+
+/* ── Code block ───────────────────────────── */
+.code-block { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: 14px; margin: 18px 0; overflow: hidden; box-shadow: 0 2px 0 #C7D2FE; }
+.code-block .code-header { background: #EEF2FF; padding: 9px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid var(--border); }
+.code-block .code-lang { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); font-weight: 700; font-family: var(--mono); }
+.copy-btn { background: var(--surface); border: 1.5px solid var(--border); color: var(--primary); border-radius: 8px; padding: 3px 12px; font-size: 11px; cursor: pointer; font-family: var(--sans); font-weight: 700; transition: background 0.15s, border-color 0.15s; }
+.copy-btn:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.copy-btn.copied { color: var(--green); border-color: var(--green-l); background: #F0FDF4; }
+.code-block pre { padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.75; }
+.kw { color: #7C3AED; } .fn { color: #2563EB; } .cm { color: #9CA3AF; font-style: italic; }
+.str { color: #16A34A; } .num { color: #D97706; } .cn { color: #DC2626; } .pn { color: #374151; } .tx { color: #1F2937; }
+
+/* ── Info boxes ───────────────────────────── */
+.box { border-radius: 14px; padding: 16px 20px; margin: 18px 0; border-left: 5px solid; display: flex; gap: 14px; align-items: flex-start; }
+.box-icon { flex-shrink: 0; margin-top: 2px; }
+.box-body { flex: 1; min-width: 0; }
+.box .box-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-family: var(--sans); }
+.box.tip  { background: #EEF2FF; border-color: var(--primary); }
+.box.tip  .box-title { color: var(--primary); }
+.box.tip  .box-icon  { color: var(--primary); }
+.box.err  { background: #FFF1F2; border-color: #F87171; }
+.box.err  .box-title { color: #B91C1C; }
+.box.err  .box-icon  { color: #EF4444; }
+.box.ok   { background: #F0FDF4; border-color: var(--green-l); }
+.box.ok   .box-title { color: var(--green); }
+.box.ok   .box-icon  { color: var(--green-l); }
+.box.warn { background: #FFFBEB; border-color: var(--orange); }
+.box.warn .box-title { color: var(--orange); }
+.box.warn .box-icon  { color: var(--orange); }
+.box p    { margin: 0; font-size: 14px; color: var(--text-body); max-width: none; }
+
+/* ── Table ────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin: 16px 0; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { background: var(--primary); color: #fff; padding: 11px 16px; text-align: left; font-weight: 700; font-size: 12px; font-family: var(--sans); }
+td { padding: 10px 16px; border-bottom: 1px solid #E0E7FF; vertical-align: top; color: var(--text-body); }
+tr:nth-child(odd)  td { background: #fff; }
+tr:nth-child(even) td { background: var(--surface2); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Step list ────────────────────────────── */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li { counter-increment: step; display: flex; gap: 16px; margin-bottom: 0; align-items: flex-start; position: relative; padding-bottom: 20px; }
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before { content: counter(step); display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; background: var(--primary); color: #fff; border-radius: 50%; font-size: 13px; font-weight: 700; font-family: var(--display); flex-shrink: 0; margin-top: 1px; box-shadow: 0 3px 0 var(--primary-d); position: relative; z-index: 1; }
+.steps li::after { content: ''; position: absolute; left: 15px; top: 34px; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px); }
+.steps li:last-child::after { display: none; }
+.steps li > span { padding-top: 5px; }
+
+/* ── Learn / recap grid ───────────────────── */
+.learn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.learn-item { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; color: var(--text-body); font-weight: 600; }
+.learn-item svg { flex-shrink: 0; margin-top: 3px; color: var(--primary); }
+
+/* ── Concept cards ────────────────────────── */
+.concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
+.concept-card { background: #EEF2FF; border: 1.5px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 3px 0 var(--border); }
+.concept-card .c-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-l); margin-bottom: 6px; font-weight: 700; }
+.concept-card .c-fn { font-family: var(--mono); font-size: 12.5px; color: var(--primary-d); font-weight: 500; margin-bottom: 8px; word-break: break-all; }
+.concept-card p { font-size: 13px; margin: 0; color: var(--text-muted); max-width: none; }
+
+/* ── Challenge ────────────────────────────── */
+.challenge { background: linear-gradient(135deg, #F5F3FF 0%, #ECFDF5 100%); border: 2px solid #A78BFA; border-radius: 16px; padding: 28px; margin-top: 4px; }
+.challenge-title { font-family: var(--display); font-size: 18px; font-weight: 700; color: #6D28D9; margin-bottom: 12px; }
+.challenge .morse { font-family: var(--mono); font-size: 18px; color: var(--primary); margin: 16px 0; letter-spacing: 3px; background: #fff; border: 1.5px solid #C7D2FE; border-radius: 10px; padding: 12px 18px; display: inline-block; }
+.challenge .morse span.s { color: var(--green); }
+.challenge .morse span.o { color: var(--orange); }
+
+/* ── Next banner ──────────────────────────── */
+.next-banner { background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%); border: 2px solid var(--border); border-radius: 16px; padding: 22px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; text-decoration: none; color: var(--text-body); transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer; box-shadow: 0 4px 0 var(--border); }
+.next-banner:hover { border-color: var(--primary); box-shadow: 0 4px 0 var(--primary-l); }
+.next-banner .nb-arrow { color: var(--primary); flex-shrink: 0; }
+.next-banner .nb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700; }
+.next-banner .nb-title { font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--text); margin-top: 3px; }
+.next-banner .nb-desc  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Section footer ───────────────────────── */
+.section-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 32px; padding-top: 22px; border-top: 2px dashed var(--border); gap: 12px; }
+.done-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 11px 18px; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; flex: 1; max-width: 300px; transition: background 0.15s, border-color 0.15s; min-height: 46px; user-select: none; }
+.done-label:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.done-label.checked { background: #F0FDF4; border-color: var(--green-l); }
+.done-check { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.done-check:disabled { opacity: 0.4; cursor: not-allowed; }
+.done-label.locked-label { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.done-text { font-size: 13px; font-weight: 700; color: var(--text-muted); font-family: var(--sans); }
+.done-label.checked .done-text { color: var(--green); }
+.btn-next { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; border: none; border-radius: 12px; padding: 12px 26px; font-size: 15px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: background 0.15s, transform 0.1s, box-shadow 0.1s; box-shadow: 0 4px 0 var(--primary-d); min-height: 46px; }
+.btn-next:hover:not(:disabled) { background: var(--primary-d); }
+.btn-next:active:not(:disabled) { box-shadow: 0 2px 0 var(--primary-d); transform: translateY(2px); }
+.btn-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.btn-next:disabled { background: #C7D2FE; color: #818CF8; box-shadow: 0 4px 0 #A5B4FC; cursor: not-allowed; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--text-muted); border: 2px solid var(--border); border-radius: 12px; padding: 10px 20px; font-size: 14px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: border-color 0.15s, color 0.15s; box-shadow: 0 3px 0 var(--border); min-height: 46px; }
+.btn-back:hover { border-color: var(--primary-l); color: var(--primary); }
+.btn-back.hidden, .btn-next.hidden { visibility: hidden; pointer-events: none; }
+
+/* ── Media placeholder ────────────────────── */
+.media-ph { background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%); border: 2px dashed var(--border); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 24px 20px; color: var(--text-muted); overflow: hidden; }
+.media-ph img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+.media-ph:has(img) { padding: 0; gap: 0; }
+.media-ph .ph-icon { color: var(--primary-l); margin-bottom: 4px; }
+.media-ph .ph-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--primary-l); }
+.media-ph .ph-label { font-size: 13px; font-weight: 700; color: var(--primary); }
+.media-ph .ph-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.media-ph.ph-sm  { min-height: 140px; }
+.media-ph.ph-md  { min-height: 200px; }
+.media-ph.ph-lg  { min-height: 260px; }
+.media-ph.ph-gif { border-color: var(--green-l); background: linear-gradient(135deg, #F0FDF4 0%, #EEF2FF 100%); }
+.media-ph.ph-gif .ph-type  { color: var(--green); }
+.media-ph.ph-gif .ph-label { color: #15803D; }
+.media-ph.ph-gif .ph-icon  { color: var(--green-l); }
+
+/* ── Split layouts ────────────────────────── */
+.split-media { display: grid; grid-template-columns: 1fr 260px; gap: 28px; align-items: start; }
+.split-code { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.split-code .pane-sticky { position: sticky; top: 76px; }
+
+/* ── Install checklist ────────────────────── */
+.install-group { margin: 22px 0; }
+.install-group-title { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.install-group-title::before { content: ''; display: inline-block; width: 4px; height: 15px; background: var(--primary-l); border-radius: 2px; flex-shrink: 0; }
+.install-item { display: flex; align-items: flex-start; gap: 14px; padding: 13px 16px; border: 1.5px solid var(--border); border-radius: 12px; margin-bottom: 9px; background: var(--surface2); cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select: none; }
+.install-item:hover { background: #EEF2FF; border-color: var(--primary-l); }
+.install-item.item-done { background: #F0FDF4; border-color: var(--green-l); }
+.install-check { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+.install-item-text { font-size: 14px; color: var(--text-body); font-weight: 600; line-height: 1.55; }
+.install-item.item-done .install-item-text { color: #15803D; }
+
+/* ── Stuck collapsible ────────────────────── */
+.stuck-details { margin: 14px 0; border-radius: 12px; border: 1.5px solid var(--orange); background: #FFFBEB; overflow: hidden; }
+.stuck-summary { padding: 11px 18px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); font-family: var(--sans); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+.stuck-summary::-webkit-details-marker { display: none; }
+.stuck-summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+details[open] .stuck-summary::before { transform: rotate(90deg); }
+.stuck-body { padding: 2px 18px 16px; font-size: 13px; color: var(--text-body); border-top: 1px solid #FDE68A; }
+.stuck-body p { margin: 10px 0 0; color: var(--text-body); font-size: 13px; max-width: none; }
+
+/* ── Fill-in-blanks code block ────────────── */
+.code-fill { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: 14px; margin: 18px 0; overflow: hidden; box-shadow: 0 2px 0 #C7D2FE; }
+.code-fill-header { background: #EEF2FF; padding: 9px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid var(--border); }
+.fill-lang { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); font-weight: 700; font-family: var(--mono); }
+.fill-score-chip { font-size: 11px; font-weight: 700; font-family: var(--sans); background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 2px 12px; color: var(--text-muted); transition: background 0.3s, color 0.3s; }
+.fill-score-chip.all-ok  { background: #F0FDF4; color: var(--green); border-color: var(--green-l); }
+.fill-score-chip.partial { background: #FFFBEB; color: var(--orange); border-color: #FDE68A; }
+.fill-score-chip.none    { background: #FFF1F2; color: var(--red);    border-color: #FCA5A5; }
+.code-fill-body { padding: 20px 22px; font-family: var(--mono); font-size: 13px; line-height: 2.15; }
+.cl { display: block; white-space: nowrap; }
+.cl-indent { padding-left: 2ch; }
+/* blank input */
+.bg { display: inline-flex; flex-direction: column; align-items: flex-start; vertical-align: middle; line-height: 1; margin: 0 1px; }
+.bi { font-family: var(--mono); font-size: 13px; background: #FFF7ED; border: none; border-bottom: 2px dashed var(--orange); border-radius: 3px 3px 0 0; padding: 1px 6px; color: var(--text-body); outline: none; text-align: center; transition: border-color 0.15s, background 0.15s, color 0.15s; cursor: text; }
+.bi:focus { border-bottom-color: var(--primary); background: #EEF2FF; box-shadow: 0 2px 0 rgba(79,70,229,0.2); }
+.bi.ok   { border-bottom-color: var(--green); border-style: solid; background: #F0FDF4; color: var(--green); }
+.bi.err  { border-bottom-color: var(--red); border-style: solid; background: #FFF1F2; color: var(--red); animation: shake 0.3s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+/* hint tooltip */
+.bh { display: none; font-size: 11px; font-weight: 600; color: var(--primary); background: #EEF2FF; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; margin-top: 3px; white-space: normal; max-width: 200px; line-height: 1.4; font-family: var(--sans); }
+.bh.show { display: block; }
+/* hint toggle button */
+.hb { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #EEF2FF; border: 1.5px solid var(--border); color: var(--primary-l); font-size: 9px; font-weight: 700; cursor: pointer; vertical-align: middle; margin-left: 2px; font-family: var(--sans); transition: background 0.15s; flex-shrink: 0; }
+.hb:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+
+/* ── Validate button ──────────────────────── */
+.btn-validate { display: inline-flex; align-items: center; gap: 8px; background: var(--green); color: #fff; border: none; border-radius: 12px; padding: 12px 26px; font-size: 15px; font-weight: 700; font-family: var(--display); cursor: pointer; transition: background 0.15s; box-shadow: 0 4px 0 #15803D; min-height: 46px; margin-top: 4px; }
+.btn-validate:hover { background: #15803D; }
+.btn-validate:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.validate-feedback { display: none; margin-top: 14px; }
+
+/* ── Honor / reveal ───────────────────────── */
+.honor-label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 11px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 12px; margin-top: 16px; font-size: 14px; font-weight: 600; color: var(--text-muted); user-select: none; transition: background 0.15s; }
+.honor-label:hover { background: #EEF2FF; }
+.honor-check { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.reveal-btn { display: none; width: 100%; margin-top: 10px; padding: 12px 18px; background: var(--surface2); border: 1.5px dashed var(--primary-l); border-radius: 12px; color: var(--primary); font-weight: 700; font-family: var(--display); font-size: 14px; cursor: pointer; text-align: left; transition: background 0.15s; }
+.reveal-btn:hover { background: #EEF2FF; }
+.solution-reveal { display: none; margin-top: 14px; }
+
+/* ── Scrollbar ────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-l); }
+
+/* ── Responsive ───────────────────────────── */
+@media (max-width: 860px) {
+  .split-code { grid-template-columns: 1fr; }
+  .split-code .pane-sticky { position: static; }
+}
+@media (max-width: 680px) {
+  .split-media { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .page { padding: 20px 18px 70px; }
+  section { padding: 24px 20px; border-radius: 16px; }
+  .hero { padding: 24px 20px; }
+  .hero h1 { font-size: 24px; }
+  .learn-grid, .concept-grid { grid-template-columns: 1fr; }
+  h2 { font-size: 18px; }
+  .step-dot { width: 22px; height: 22px; font-size: 9px; }
+  .step-dot::after { width: 5px; }
+  .brand-chip { display: none; }
+  .nav-section { display: block; }
+  .top-nav-inner { gap: 10px; }
+  .btn-next, .btn-back { padding: 10px 14px; font-size: 13px; }
+  .done-label { max-width: none; }
+  .section-footer { flex-wrap: wrap; }
+  .code-fill-body { font-size: 12px; }
+  .bi { font-size: 12px; }
+}
+@media (max-width: 420px) {
+  .step-dot { width: 18px; height: 18px; font-size: 8px; }
+  .step-dot::after { width: 3px; }
+}
+
+/* ── MCQ ──────────────────────────────────── */
+.mcq-list { display: flex; flex-direction: column; gap: 22px; margin: 20px 0; }
+.mcq-card { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 16px; padding: 22px 24px; }
+.mcq-q { font-weight: 700; color: var(--text); margin-bottom: 8px; font-size: 15px; max-width: none; }
+.mcq-context { background: var(--code-bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; margin-bottom: 14px; overflow-x: auto; }
+.mcq-blank { background: #FEF3C7; border-radius: 4px; padding: 1px 8px; color: #92400E; font-weight: 700; }
+.mcq-options { display: flex; flex-direction: column; gap: 8px; }
+.mcq-opt { background: var(--surface); border: 2px solid var(--border); border-radius: 10px; padding: 10px 16px; font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; color: var(--text-body); transition: border-color 0.15s, background 0.15s; display: flex; align-items: center; gap: 12px; width: 100%; }
+.mcq-opt:hover:not(:disabled) { border-color: var(--primary-l); background: #EEF2FF; }
+.mcq-opt.correct { border-color: var(--green); background: #F0FDF4; color: var(--green); }
+.mcq-opt.wrong   { border-color: var(--red);   background: #FFF1F2; color: var(--red); }
+.mcq-opt:disabled { cursor: default; }
+.mcq-badge { width: 24px; height: 24px; border-radius: 50%; background: var(--bg); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; border: 1.5px solid var(--border); }
+.mcq-opt.correct .mcq-badge { background: var(--green);  color: #fff; border-color: var(--green); }
+.mcq-opt.wrong   .mcq-badge { background: var(--red);    color: #fff; border-color: var(--red); }
+.mcq-explanation { margin-top: 14px; padding: 12px 16px; background: #F0FDF4; border-left: 4px solid var(--green-l); border-radius: 0 10px 10px 0; font-size: 14px; color: var(--text-body); display: none; line-height: 1.6; }
+.mcq-explanation.show { display: block; }
+.mcq-score-row { margin-bottom: 4px; }
+.mcq-score-chip { background: var(--bg); border: 2px solid var(--border); border-radius: 20px; padding: 4px 18px; font-size: 13px; font-weight: 700; color: var(--primary); display: inline-block; }
+.mcq-score-chip.all-ok { border-color: var(--green); color: var(--green); background: #F0FDF4; }
+
+/* ── Code fill-in blanks ──────────────────── */
+.code-blank { font-family: var(--mono); font-size: 13px; background: #FEF3C7; border: 2px solid #FBBF24; border-radius: 6px; padding: 2px 6px; color: #92400E; min-width: 36px; text-align: center; outline: none; vertical-align: middle; transition: border-color 0.15s, background 0.15s; }
+.code-blank:focus { border-color: var(--primary); background: #EEF2FF; color: var(--primary-d); }
+.code-blank.blank-correct { background: #F0FDF4; border-color: var(--green-l); color: var(--green); }
+.code-blank.blank-wrong   { background: #FFF1F2; border-color: #F87171; color: var(--red); }
+
+/* ── Debug banner ─────────────────────────── */
+.debug-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #1E1B4B; color: #A5B4FC; text-align: center; font-size: 11px; font-weight: 700; font-family: var(--sans); padding: 5px; letter-spacing: 1px; z-index: 100; }
+
+/* ── Debug toggle button ──────────────────── */
+.debug-toggle-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+  min-height: 30px;
+}
+.debug-toggle-btn:hover { background: var(--bg); border-color: var(--primary-l); color: var(--primary); }
+.debug-toggle-btn.debug-on { background: #FEF3C7; border-color: #FBBF24; color: #92400E; }
+.debug-toggle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-name">WaveKit</span>
+      <span class="brand-chip">M1 of 5</span>
+    </a>
+    <nav class="step-dots" aria-label="Module sections">
+      <button class="step-dot active" data-index="0"  title="Welcome">1</button>
+      <button class="step-dot locked"  data-index="1"  title="What You Need">2</button>
+      <button class="step-dot locked"  data-index="2"  title="Meet the ESP32">3</button>
+      <button class="step-dot locked"  data-index="3"  title="Install Arduino IDE">4</button>
+      <button class="step-dot locked"  data-index="4"  title="One Line of Code">5</button>
+      <button class="step-dot locked"  data-index="5"  title="Naming Things">6</button>
+      <button class="step-dot locked"  data-index="6"  title="setup() and loop()">7</button>
+      <button class="step-dot locked"  data-index="7"  title="Read the Sketch">8</button>
+      <button class="step-dot locked"  data-index="8"  title="Upload">9</button>
+      <button class="step-dot locked"  data-index="9"  title="Experiment">10</button>
+      <button class="step-dot locked"  data-index="10" title="Check Your Knowledge">11</button>
+      <button class="step-dot locked"  data-index="11" title="SOS Challenge">12</button>
+      <button class="step-dot locked"  data-index="12" title="What's Next">13</button>
+    </nav>
+    <span class="nav-section" id="current-section-label">Welcome</span>
+    <button class="debug-toggle-btn" id="debug-toggle-btn" onclick="toggleDebug()" aria-label="Toggle debug mode" title="Unlock all sections for testing">🔒 Debug</button>
+  </div>
+</header>
+
+<div class="page">
+
+<!-- ═══════════════════════════════════════════
+     1. WELCOME
+═══════════════════════════════════════════ -->
+<section id="learn" class="active">
+  <div class="hero">
+    <div class="mod-badge">Module 1 of 5</div>
+    <h1>Your First Blink</h1>
+    <p class="hero-desc">No experience needed. You'll go from zero to a blinking light on real hardware.</p>
+    <div class="meta-chips">
+      <div class="meta-chip"><span class="mlabel">Time</span><span class="mvalue">45 – 60 min</span></div>
+      <div class="meta-chip"><span class="mlabel">Difficulty</span><span class="mvalue">Beginner</span></div>
+      <div class="meta-chip"><span class="mlabel">Prerequisites</span><span class="mvalue">None</span></div>
+    </div>
+  </div>
+
+  <h2><span class="num">1</span> What You'll Build</h2>
+  <p>By the end of this module you'll have written your very first program and sent it to real hardware. The result is simple — a light that blinks on and off by itself — but the skills you pick up here power everything else in WaveKit.</p>
+
+  <div class="split-media">
+    <div>
+      <div class="learn-grid">
+        <div class="learn-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Install the free software that lets you write and send code to the ESP32
+        </div>
+        <div class="learn-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Write your first real program — it's only 10 lines
+        </div>
+        <div class="learn-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Send your code to the board over USB and watch it run
+        </div>
+        <div class="learn-item">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Modify the blink speed and see the change immediately
+        </div>
+      </div>
+      <div class="box tip" style="margin-top:16px;">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div class="box-body">
+          <div class="box-title">Never written code before?</div>
+          <p>Perfect — this module is designed for you. Every technical word is explained the moment it first appears. Go at your own pace and tick off each step as you go.</p>
+        </div>
+      </div>
+    </div>
+    <!-- PLACEHOLDER: GIF of ESP32 LED blinking on a completed boat build -->
+    <div class="media-ph ph-gif ph-lg" aria-label="Media placeholder">
+      <img 
+        src="gifs/Japan Jarvis GIF.gif" 
+        alt="Japan jarvis"
+      />
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back hidden" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-learn">
+      <input type="checkbox" class="done-check" id="check-learn" onchange="onCheckChange(this)">
+      <span class="done-text">Ready — let's go!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     2. WHAT YOU NEED
+═══════════════════════════════════════════ -->
+<section id="parts">
+  <h2><span class="num">2</span> What You Need</h2>
+
+  <div class="split-media">
+    <div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ESP32 DevKitC V4</strong></td><td>The brain of the WaveKit boat — used in every module</td></tr>
+            <tr><td><strong>USB-A to Micro-USB cable</strong></td><td>Must transfer data, not just charge — see warning below</td></tr>
+            <tr><td><strong>Computer</strong> (Windows, Mac, or Linux)</td><td>~500 MB free space for Arduino IDE</td></tr>
+            <tr><td>External LED + 220Ω resistor <em>(optional)</em></td><td>The ESP32 has a built-in LED — not needed for M1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box warn">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="box-body">
+          <div class="box-title">Check your USB cable</div>
+          <p>Many phone charger cables are <strong>charge-only</strong> — they carry power but cannot send data. If your computer doesn't detect the ESP32, swapping the cable is the first thing to try.</p>
+        </div>
+      </div>
+    </div>
+    <!-- PLACEHOLDER: Photo of the parts laid out -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="ph-type">Photo</span>
+      <span class="ph-label">Parts photo</span>
+      <span class="ph-hint">Replace with: flat-lay photo of ESP32, USB cable, and resistor</span>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-parts">
+      <input type="checkbox" class="done-check" id="check-parts" onchange="onCheckChange(this)">
+      <span class="done-text">Got everything!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     3. MEET THE ESP32
+═══════════════════════════════════════════ -->
+<section id="esp32">
+  <h2><span class="num">3</span> Meet the ESP32</h2>
+
+  <h3>What is a microcontroller?</h3>
+  <p>A <strong>microcontroller</strong> is a tiny computer that runs exactly one program, on repeat, forever. Think of it like a vending machine: you press a button (input), it runs a fixed set of instructions, and dispenses a drink (output). Unlike your laptop, a microcontroller doesn't run an operating system — it just runs <em>your</em> code, as fast as it can, until the power is cut.</p>
+
+  <div class="split-media">
+    <div>
+      <p class="wide">The <strong>ESP32 DevKitC V4</strong> is the microcontroller you'll use throughout all five WaveKit modules. Here's what's on it:</p>
+      <ul>
+        <li><strong>Dual-core processor at 240 MHz</strong> — fast enough to handle WiFi and motor control simultaneously</li>
+        <li><strong>Built-in WiFi + Bluetooth</strong> — used in Modules 4 and 5 to control the boat from your phone</li>
+        <li><strong>30 GPIO pins</strong> — the metal pins around the edge you connect things to</li>
+        <li><strong>Built-in blue LED on GPIO 2</strong> — you'll blink this today, no wiring needed</li>
+      </ul>
+    </div>
+    <!-- PLACEHOLDER: Labelled diagram of ESP32 board -->
+    <div class="media-ph ph-md" aria-label="Media placeholder">
+            <img 
+              src="gifs/esp32.jpg" 
+              alt="esp32"
+      />    </div>
+  </div>
+
+  <div class="concept-grid" style="margin-top:20px;">
+    <div class="box tip" style="margin:0;">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">What is GPIO?</div>
+        <p><strong>General Purpose Input/Output.</strong> Each GPIO pin can be set to <strong>output</strong> mode (sends voltage — controls LEDs, motors) or <strong>input</strong> mode (reads voltage — detects buttons, sensors).</p>
+      </div>
+    </div>
+    <div class="box tip" style="margin:0;">
+      <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="box-body">
+        <div class="box-title">What's special about GPIO 2?</div>
+        <p>The DevKitC V4 has a tiny blue LED soldered directly to pin 2. When your code turns it on (sends voltage to it), the LED lights up — no wiring needed for this module.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-esp32">
+      <input type="checkbox" class="done-check" id="check-esp32" onchange="onCheckChange(this)">
+      <span class="done-text">Got it — next step!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     4. INSTALL ARDUINO IDE
+═══════════════════════════════════════════ -->
+<section id="install">
+  <h2><span class="num">4</span> Install Arduino IDE</h2>
+  <p>Before we write code we need software to write it in. <strong>Arduino IDE</strong> is the free app you use to write, check, and send sketches (programs) to the ESP32 over USB. Think of it like Google Docs, but for microcontroller programs.</p>
+  <p>Tick off each step as you complete it. The Done button unlocks only when every box is checked.</p>
+
+  <!-- Sub-group A -->
+  <div class="install-group">
+    <div class="install-group-title">A — Download &amp; Install</div>
+    <label class="install-item" id="item-dl">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Go to <strong>arduino.cc/en/software</strong> and download Arduino IDE 2 for your OS (Windows, Mac, or Linux)</span>
+    </label>
+    <label class="install-item" id="item-run">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Run the installer — accept the defaults. Confirm Arduino IDE opens on your computer</span>
+    </label>
+    <!-- PLACEHOLDER: Screenshot of Arduino IDE after first launch -->
+    <div class="media-ph ph-sm" style="margin-top:12px;" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span class="ph-type">Screenshot</span>
+      <span class="ph-label">Arduino IDE — first launch</span>
+      <span class="ph-hint">Replace with: screenshot of Arduino IDE 2 open on a blank sketch</span>
+    </div>
+  </div>
+
+  <!-- Sub-group B -->
+  <div class="install-group">
+    <div class="install-group-title">B — Add ESP32 Board Support</div>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px;">Out of the box Arduino IDE doesn't know about ESP32. These steps teach it. Takes about 2 minutes.</p>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Open <strong>File → Preferences</strong> (macOS: <strong>Arduino → Preferences</strong>)</span>
+    </label>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Find <strong>"Additional Boards Manager URLs"</strong>, paste the URL below, then click OK</span>
+    </label>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">URL — paste this exactly</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="tx">https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json</span></pre>
+    </div>
+    <!-- PLACEHOLDER: Screenshot of Preferences dialog -->
+    <div class="media-ph ph-sm" style="margin:12px 0;" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span class="ph-type">Screenshot</span>
+      <span class="ph-label">Preferences dialog with URL pasted</span>
+      <span class="ph-hint">Replace with: screenshot of Preferences showing the Espressif URL in the Boards Manager URLs field</span>
+    </div>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Go to <strong>Tools → Board → Boards Manager</strong>, search <code>esp32</code>, install the package by <em>Espressif Systems</em> (1–2 min)</span>
+    </label>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Go to <strong>Tools → Board → esp32</strong> and select <strong>"ESP32 Dev Module"</strong></span>
+    </label>
+  </div>
+
+  <!-- Sub-group C -->
+  <div class="install-group">
+    <div class="install-group-title">C — Connect the Board</div>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Plug the ESP32 into your computer using the Micro-USB data cable — the board should light up briefly</span>
+    </label>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Open <strong>Tools → Port</strong> — a new port should appear (<code>COM3</code> on Windows; <code>/dev/ttyUSB0</code> on Mac/Linux)</span>
+    </label>
+    <details class="stuck-details">
+      <summary class="stuck-summary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        Stuck? No port appearing in the list
+      </summary>
+      <div class="stuck-body">
+        <p><strong>1. Try a different USB cable.</strong> Many cables are charge-only — the most common cause.</p>
+        <p><strong>2. Install the CH340 driver.</strong> A driver is a small piece of software that teaches your computer how to talk to the board's USB chip. Search <em>"CH340 driver Windows"</em> (or Mac/Linux), install it, then unplug and replug the board.</p>
+        <p><strong>3. Restart Arduino IDE</strong> after plugging in — the port list only refreshes on open.</p>
+      </div>
+    </details>
+    <label class="install-item">
+      <input type="checkbox" class="install-check" onchange="checkInstallProgress();toggleItemDone(this)">
+      <span class="install-item-text">Select that port from <strong>Tools → Port</strong> so Arduino IDE knows which board to talk to</span>
+    </label>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label locked-label" id="install-done-label" for="check-install">
+      <input type="checkbox" class="done-check" id="check-install" onchange="onCheckChange(this)" disabled>
+      <span class="done-text" id="install-done-text">Tick all steps above first</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     5. ONE LINE OF CODE
+═══════════════════════════════════════════ -->
+<section id="anatomy">
+  <h2><span class="num">5</span> One Line of Code</h2>
+  <p><strong>Code is a recipe</strong> — a list of instructions the ESP32 follows exactly, one at a time, in order. The language we use is called <strong>C++</strong>, and the files we write are called <strong>sketches</strong> (Arduino's word for a program, saved as <code>.ino</code>).</p>
+  <p>Before looking at a full program, let's zoom in on the smallest possible piece: <strong>one instruction</strong>.</p>
+
+  <div class="box tip" style="margin-bottom:20px;">
+    <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div class="box-body">
+      <p style="margin-bottom:8px;"><strong><code>//</code> starts a comment</strong> — any text after <code>//</code> on the same line is a note for humans. The ESP32 completely ignores it. Comments explain what code does without affecting how it runs.</p>
+      <p style="margin-bottom:0;"><strong>Each instruction ends with <code>;</code></strong> — like a full stop at the end of a sentence. It tells C++ "this instruction is finished." Forgetting one is one of the most common beginner mistakes — Arduino IDE will flag it as an error.</p>
+    </div>
+  </div>
+
+  <h3>Anatomy of an instruction</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — one instruction</span></div>
+    <pre><span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span></pre>
+  </div>
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="c-label">① Name</div>
+      <div class="c-fn">delay</div>
+      <p>The name of the instruction — tells the ESP32 <em>what to do</em>. Arduino comes with many built-in instructions; you'll learn a handful today.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">② Input</div>
+      <div class="c-fn">(1000)</div>
+      <p>The value passed in — inside the parentheses. <code>delay</code> needs to know <em>how long</em> to wait, so you give it a number in milliseconds. 1000 ms = 1 second.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">③ Full stop</div>
+      <div class="c-fn">;</div>
+      <p>The semicolon ends the instruction. Every single instruction ends with one — no exceptions. Miss it and Arduino IDE will flag an error on that line.</p>
+    </div>
+  </div>
+
+  <h3>Some instructions take two inputs</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — two inputs, separated by a comma</span></div>
+    <pre><span class="fn">digitalWrite</span><span class="pn">(</span><span class="num">2</span><span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span></pre>
+  </div>
+  <p>Same pattern: name → <code>(</code> inputs <code>)</code> → <code>;</code>. This time there are two inputs separated by a comma: the pin number (<code>2</code>) and the state (<code>HIGH</code>). <code>HIGH</code> and <code>LOW</code> are pre-built words that Arduino defines for you — written in <strong>ALL CAPS</strong> by convention to signal "this is a fixed, built-in value, not something you invented."</p>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-anatomy">
+      <input type="checkbox" class="done-check" id="check-anatomy" onchange="onCheckChange(this)">
+      <span class="done-text">Got it — next!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     6. NAMING THINGS
+═══════════════════════════════════════════ -->
+<section id="naming">
+  <h2><span class="num">6</span> Naming Things</h2>
+  <p>You just saw <code>digitalWrite(2, HIGH);</code>. The <code>2</code> is the GPIO pin number for the ESP32's built-in LED. But what if you used that pin number in ten different places? You'd type <code>2</code> every time — and if you ever switched to a different LED, you'd have to hunt down every single occurrence. Worse, bare numbers tell you nothing: <code>2</code> could mean anything.</p>
+  <p>The solution: <strong>give values a name</strong>.</p>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — giving a value a name</span></div>
+    <pre><span class="kw">const</span> <span class="kw">int</span> LED_PIN <span class="pn">=</span> <span class="num">2</span><span class="pn">;</span></pre>
+  </div>
+
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="c-label">const</div>
+      <div class="c-fn">constant</div>
+      <p>This value is set once and <strong>cannot change</strong> while the program runs. Marking it constant protects you from accidentally overwriting it later.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">int</div>
+      <div class="c-fn">integer</div>
+      <p>The type of value stored — a <strong>whole number</strong> with no decimal point. Pin numbers are always whole numbers, so <code>int</code> is the right type.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">LED_PIN</div>
+      <div class="c-fn">the name</div>
+      <p>The name you choose. All-caps with underscores is a convention for constants — it signals "this is a fixed label." You can name it anything, but a clear name makes code read like English.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">= 2</div>
+      <div class="c-fn">the value</div>
+      <p>The number being stored — GPIO pin 2, the physical pin where the ESP32's built-in LED is wired (you saw this in section 3).</p>
+    </div>
+  </div>
+
+  <h3>The payoff: readable code</h3>
+  <p>Compare these two lines — they do <em>exactly</em> the same thing:</p>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — before and after naming</span></div>
+    <pre><span class="fn">digitalWrite</span><span class="pn">(</span><span class="num">2</span><span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span>      <span class="cm">// What is 2? You have to remember.</span>
+<span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span>  <span class="cm">// Reads like English.</span></pre>
+  </div>
+  <p>From now on the sketch uses <code>LED_PIN</code> everywhere. If you ever change pins, you update <em>only</em> the one line where <code>LED_PIN</code> is defined.</p>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-naming">
+      <input type="checkbox" class="done-check" id="check-naming" onchange="onCheckChange(this)">
+      <span class="done-text">Makes sense — next!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     7. SETUP() AND LOOP()
+═══════════════════════════════════════════ -->
+<section id="functions">
+  <h2><span class="num">7</span> setup() and loop()</h2>
+  <p>You know what one instruction looks like, and how to name values. The last piece before the full program: how do you <em>group</em> instructions together and tell the ESP32 when to run them?</p>
+
+  <h3>Curly braces group instructions</h3>
+  <p><strong>Curly braces <code>{ }</code></strong> wrap a group of instructions that belong together. Everything between <code>{</code> and <code>}</code> is the body — the list of instructions that runs as a unit.</p>
+
+  <h3>A function is a named group</h3>
+  <p>When you give a group of instructions a name and a header line, it becomes a <strong>function</strong>:</p>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — what a function looks like</span></div>
+    <pre><span class="kw">void</span> <span class="fn">functionName</span><span class="pn">() {</span>
+  <span class="cm">// instructions go here</span>
+<span class="pn">}</span></pre>
+  </div>
+
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="c-label">void</div>
+      <div class="c-fn">no result handed back</div>
+      <p>Means "this function doesn't return a value when it's done — it runs its instructions and stops." Both <code>setup()</code> and <code>loop()</code> always start with <code>void</code>.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">()</div>
+      <div class="c-fn">inputs (empty here)</div>
+      <p>The parentheses after the name are where you'd pass information in. For <code>setup()</code> and <code>loop()</code> nothing needs to be passed, so they're always left empty.</p>
+    </div>
+    <div class="concept-card">
+      <div class="c-label">{ }</div>
+      <div class="c-fn">the body</div>
+      <p>Everything inside the curly braces is the function's body — the instructions it runs. Each instruction inside still ends with its own <code>;</code>.</p>
+    </div>
+  </div>
+
+  <h3>The two functions every sketch must have</h3>
+  <div class="split-media" style="align-items:start;">
+    <div>
+      <p class="wide">Every single sketch — no matter how simple or complex — must contain exactly these two functions. They are not optional.</p>
+      <div class="box tip">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div class="box-body">
+          <div class="box-title">An everyday analogy</div>
+          <p>Think of <code>setup()</code> like your <strong>morning routine</strong> — things you do once when you wake up. Think of <code>loop()</code> like your <strong>daily work</strong> — it repeats over and over until you stop.</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="code-block" style="margin:0;">
+        <div class="code-header"><span class="code-lang">C++ — skeleton of every sketch</span></div>
+        <pre><span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="cm">// Runs ONCE on power-on</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="cm">// Runs FOREVER after setup()</span>
+<span class="pn">}</span></pre>
+      </div>
+      <!-- PLACEHOLDER: Diagram of setup/loop execution flow -->
+      <div class="media-ph ph-sm" style="margin-top:12px;" aria-label="Media placeholder">
+        <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="ph-type">Diagram</span>
+        <span class="ph-label">setup() → loop() flow</span>
+        <span class="ph-hint">Replace with: flowchart — power on → setup() runs once → loop() repeats forever</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-functions">
+      <input type="checkbox" class="done-check" id="check-functions" onchange="onCheckChange(this)">
+      <span class="done-text">Got it — show me the sketch!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     8. READ THE BLINK SKETCH
+═══════════════════════════════════════════ -->
+<section id="readcode">
+  <h2><span class="num">8</span> Read the Blink Sketch</h2>
+  <p>Here is the complete program. Read every line carefully — each one is explained below. Take your time; the next step will ask you to fill in parts of this sketch from memory.</p>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C++ — blink.ino</span></div>
+    <pre><span class="cm">// Blink built-in LED once per second</span>
+
+<span class="kw">const</span> <span class="kw">int</span> LED_PIN <span class="pn">=</span> <span class="num">2</span><span class="pn">;</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="fn">pinMode</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">OUTPUT</span><span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">1000</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+  </div>
+
+  <h3>What each line does</h3>
+  <ol class="steps">
+    <li><span><code>const int LED_PIN = 2;</code><br><code>const</code> = constant (can't be changed), <code>int</code> = integer (whole number). Creates a named box called <code>LED_PIN</code> holding the number <code>2</code>. That <code>2</code> is the GPIO pin number — the ESP32's built-in LED is physically wired to GPIO 2. Using a name means if you want a different pin, you change only this one line.</span></li>
+    <li><span><code>void setup() { ... }</code><br><code>void</code> means "this function doesn't hand back a result." Everything inside the curly braces runs once, right when the board powers on. Use it for one-time setup tasks.</span></li>
+    <li><span><code>pinMode(LED_PIN, OUTPUT);</code><br>Tells the ESP32 "GPIO 2 will send voltage". Without this line, <code>digitalWrite()</code> has no effect.</span></li>
+    <li><span><code>void loop() { ... }</code><br><code>void</code> again — no result handed back. Everything inside here repeats forever. When the closing <code>}</code> is reached, it jumps back to the top.</span></li>
+    <li><span><code>digitalWrite(LED_PIN, HIGH);</code><br>Sends 3.3V (the ESP32's full output voltage) through GPIO 2. The built-in LED lights up.</span></li>
+    <li><span><code>delay(1000);</code><br>Pauses 1000 milliseconds (= 1 second). The LED stays on during this pause.</span></li>
+    <li><span><code>digitalWrite(LED_PIN, LOW);</code><br>Sends 0V through GPIO 2. The LED turns off.</span></li>
+    <li><span><code>delay(1000);</code><br>Pauses another second, then <code>loop()</code> restarts from step 5.</span></li>
+  </ol>
+
+  <div class="box tip">
+    <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div class="box-body">
+      <div class="box-title">About delay()</div>
+      <p><code>delay()</code> freezes the entire chip while it waits. That's fine here, but later modules use a smarter approach so WiFi and motors can run at the same time.</p>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-readcode">
+      <input type="checkbox" class="done-check" id="check-readcode" onchange="onCheckChange(this)">
+      <span class="done-text">Read and understood!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     9. CHECK YOUR KNOWLEDGE
+═══════════════════════════════════════════ -->
+<section id="typecheck">
+  <h2><span class="num">11</span> Check Your Knowledge</h2>
+  <p>Six questions — one per key part of the blink sketch. Pick the best answer for each. An explanation appears immediately after you choose so you understand <em>why</em>, not just <em>what</em>. You need all 6 correct to move on.</p>
+
+  <div class="mcq-score-row">
+    <span class="mcq-score-chip" id="mcq-score-chip">0 / 6 correct</span>
+  </div>
+
+  <div class="mcq-list">
+
+    <!-- Q1 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q1 — What name belongs in the blank?</p>
+      <div class="mcq-context"><span class="kw">const</span> <span class="kw">int</span> <span class="mcq-blank">______</span> <span class="pn">=</span> <span class="num">2</span><span class="pn">;</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>pin</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">B</span> <code>LED_PIN</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> <code>2</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> <code>ledpin</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>LED_PIN</strong> is correct. Constant names are written in ALL_CAPS by convention — it signals "this value is fixed, not something that changes." <code>LED_PIN</code> also describes exactly what is stored: the GPIO pin number for the LED. <code>2</code> is the value, not the name. <code>ledpin</code> breaks the all-caps convention. <code>pin</code> is too vague.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q2 — Which instruction configures a pin's direction?</p>
+      <div class="mcq-context"><span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span><br>&nbsp;&nbsp;<span class="mcq-blank">______</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">OUTPUT</span><span class="pn">);</span><br><span class="pn">}</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>digitalWrite</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> <code>delay</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> <code>pinMode</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> <code>setup</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>pinMode</strong> is correct — its name literally says what it does: it sets the <em>mode</em> of a <em>pin</em> (input or output). Without calling it first, <code>digitalWrite()</code> has no effect. <code>digitalWrite</code> sends a signal after the pin is configured. <code>delay</code> pauses the program. <code>setup</code> is the function we're already inside.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q3 — Should the LED pin be set to INPUT or OUTPUT?</p>
+      <div class="mcq-context"><span class="fn">pinMode</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="mcq-blank">______</span><span class="pn">);</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>INPUT</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> <code>HIGH</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> <code>WRITE</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">D</span> <code>OUTPUT</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>OUTPUT</strong> is correct. The ESP32 is <em>sending</em> voltage to the LED — the pin pushes current <em>out</em>. <code>INPUT</code> mode is used for reading sensors or buttons where voltage flows <em>in</em>. <code>HIGH</code> is a voltage level, not a pin mode. <code>WRITE</code> does not exist in Arduino.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q4 — Which value turns the LED on?</p>
+      <div class="mcq-context"><span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="mcq-blank">______</span><span class="pn">);</span>  <span class="cm">// turn LED on</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>ON</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> <code>LOW</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> <code>HIGH</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> <code>1</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>HIGH</strong> is correct. It sends the ESP32's full 3.3V through the pin, which lights the LED. <code>LOW</code> sends 0V — the LED turns off. <code>ON</code> and <code>1</code> are not valid Arduino constants for <code>digitalWrite()</code>.</div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q5 — What number makes the LED stay on for exactly 1 second?</p>
+      <div class="mcq-context"><span class="fn">delay</span><span class="pn">(</span><span class="mcq-blank">______</span><span class="pn">);</span>  <span class="cm">// wait 1 second</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>100</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> <code>1</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">C</span> <code>1000</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">D</span> <code>10000</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>1000</strong> is correct. <code>delay()</code> counts in <em>milliseconds</em> — thousandths of a second. 1000 ms = exactly 1 second. <code>100</code> = 0.1 s (too short). <code>1</code> = 0.001 s (barely a blink). <code>10000</code> = 10 seconds (way too long).</div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="mcq-card">
+      <p class="mcq-q">Q6 — Which value turns the LED off?</p>
+      <div class="mcq-context"><span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="mcq-blank">______</span><span class="pn">);</span>  <span class="cm">// turn LED off</span></div>
+      <div class="mcq-options">
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">A</span> <code>HIGH</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">B</span> <code>OFF</code></button>
+        <button class="mcq-opt" onclick="selectOption(this,false)"><span class="mcq-badge">C</span> <code>0</code></button>
+        <button class="mcq-opt" data-correct="true" onclick="selectOption(this,true)"><span class="mcq-badge">D</span> <code>LOW</code></button>
+      </div>
+      <div class="mcq-explanation"><strong>LOW</strong> is correct. It sends 0V through the pin — no voltage, no current through the LED, so it goes off. <code>HIGH</code> would turn it on. <code>OFF</code> and <code>0</code> are not valid constants for <code>digitalWrite()</code>.</div>
+    </div>
+
+  </div>
+
+  <div class="box tip" style="margin-top:20px;">
+    <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div class="box-body">
+      <div class="box-title">Also type this into Arduino IDE</div>
+      <p>Open a new sketch in Arduino IDE (<strong>File → New Sketch</strong>). Arduino will give you an empty <code>setup()</code> and <code>loop()</code> — <strong>delete everything in the editor</strong> and type the complete code fresh. You'll need it ready for the Upload step.</p>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label locked-label" id="typecheck-done-label" for="check-typecheck">
+      <input type="checkbox" class="done-check" id="check-typecheck" onchange="onCheckChange(this)" disabled>
+      <span class="done-text" id="typecheck-done-text">Answer all 6 correctly first</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     10. UPLOAD
+═══════════════════════════════════════════ -->
+<section id="upload">
+  <h2><span class="num">9</span> Upload to the ESP32</h2>
+  <p>Fill in the four blanks below — each answer comes from something you learned in this module. Once all are correct, click <strong>Copy</strong>, paste into a new Arduino IDE sketch, and upload.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">C++ — fill in the blanks, then copy</span>
+      <button class="copy-btn" id="copy-upload-btn" onclick="copyFilledCode(this)" disabled>Copy</button>
+    </div>
+    <pre><span class="kw">const</span> <span class="kw">int</span> LED_PIN <span class="pn">=</span> <input class="code-blank" data-answer="2" placeholder="?" oninput="checkUploadBlanks()" size="2" aria-label="GPIO pin number"><span class="pn">;</span>  <span class="cm">// which GPIO pin is the built-in LED?</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="fn">pinMode</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <input class="code-blank" data-answer="OUTPUT" placeholder="??????" oninput="checkUploadBlanks()" size="6" aria-label="pin mode"><span class="pn">);</span>  <span class="cm">// configure pin as input or output?</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span>   <span class="cm">// LED on</span>
+  <span class="fn">delay</span><span class="pn">(</span><input class="code-blank" data-answer="1000" placeholder="????" oninput="checkUploadBlanks()" size="4" aria-label="on delay ms"><span class="pn">);</span>            <span class="cm">// how many ms for 1 second?</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>    <span class="cm">// LED off</span>
+  <span class="fn">delay</span><span class="pn">(</span><input class="code-blank" data-answer="1000" placeholder="????" oninput="checkUploadBlanks()" size="4" aria-label="off delay ms"><span class="pn">);</span>            <span class="cm">// same pause before next blink</span>
+<span class="pn">}</span></pre>
+  </div>
+
+  <div id="upload-blanks-ok" class="box ok" style="display:none">
+    <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <div class="box-body">
+      <div class="box-title">All blanks filled correctly!</div>
+      <p>Click <strong>Copy</strong> above &rarr; open Arduino IDE &rarr; paste into a new sketch &rarr; upload.</p>
+    </div>
+  </div>
+
+  <ol class="steps" style="margin-top:16px">
+    <li><span>Paste the copied sketch into Arduino IDE (File &rarr; New, then Ctrl+A, Ctrl+V)</span></li>
+    <li><span>Confirm <strong>Tools &rarr; Board: ESP32 Dev Module</strong> and the correct port</span></li>
+    <li><span>Click the <strong>Upload (&#8594;) button</strong> — wait for <em>"Hard resetting via RTS pin…"</em></span></li>
+    <li><span>The LED should blink once per second. Press <strong>EN</strong> to restart if it doesn&rsquo;t start automatically</span></li>
+  </ol>
+
+  <!-- PLACEHOLDER: GIF of LED blinking after upload -->
+  <div class="media-ph ph-gif ph-sm" aria-label="Media placeholder">
+    <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    <span class="ph-type">GIF</span>
+    <span class="ph-label">ESP32 LED blinking at 1 Hz</span>
+    <span class="ph-hint">Replace with: close-up GIF of the blue LED blinking once per second on the board</span>
+  </div>
+
+  <details class="stuck-details">
+    <summary class="stuck-summary">&#9888; Stuck on &ldquo;Connecting&hellip;&rdquo; in the output panel?</summary>
+    <div class="stuck-body">
+      <p>Hold the <strong>BOOT</strong> button on the board immediately after clicking Upload. Release it when dots (<code>&hellip;</code>) appear in the console. This is a one-time quirk on some ESP32 boards.</p>
+    </div>
+  </details>
+  <details class="stuck-details">
+    <summary class="stuck-summary">&#9888; Upload succeeded but LED isn&rsquo;t blinking?</summary>
+    <div class="stuck-body">
+      <p><strong>1.</strong> Press the <strong>EN</strong> button on the board to restart it.</p>
+      <p><strong>2.</strong> Check <strong>Tools &rarr; Board</strong> is <em>&ldquo;ESP32 Dev Module&rdquo;</em>.</p>
+      <p><strong>3.</strong> Some boards use GPIO 0 or GPIO 13 instead of 2. Check the silkscreen labels on your board.</p>
+    </div>
+  </details>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label locked-label" id="upload-done-label" for="check-upload">
+      <input type="checkbox" class="done-check" id="check-upload" onchange="onCheckChange(this)" disabled>
+      <span class="done-text" id="upload-done-text">Fill all blanks correctly first</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     11. EXPERIMENT
+═══════════════════════════════════════════ -->
+<section id="experiment">
+  <h2><span class="num">10</span> Experiment: Change the Speed</h2>
+
+  <div class="split-media">
+    <div>
+      <p class="wide">Now that your code is running, let's modify it. Changing a running program and seeing the result is how all programmers work — every day, at every skill level.</p>
+      <h3>Try it: make it blink faster</h3>
+      <p class="wide">In Arduino IDE, change both <code>delay(1000);</code> lines to <code>delay(200);</code>. Click Upload again. The LED should now blink 5× faster.</p>
+      <div class="box tip">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div class="box-body">
+          <div class="box-title">Now try delay(50)</div>
+          <p>At 50ms the LED flickers so fast it looks dim — the human eye can't keep up. This effect is called <strong>PWM</strong> (Pulse Width Modulation — rapidly switching a pin on and off to fake a lower voltage level) and you'll use it deliberately in Module 2 to control the servo.</p>
+        </div>
+      </div>
+      <div class="box ok">
+        <svg class="box-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="box-body">
+          <div class="box-title">The core loop of all programming</div>
+          <p><strong>Write → Upload → Observe → Modify.</strong> You've got the workflow down.</p>
+        </div>
+      </div>
+    </div>
+    <!-- PLACEHOLDER: GIF of LED at different speeds -->
+    <div class="media-ph ph-gif ph-lg" aria-label="Media placeholder">
+      <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span class="ph-type">GIF</span>
+      <span class="ph-label">Blink speed comparison</span>
+      <span class="ph-hint">Replace with: side-by-side GIF showing delay(1000) vs delay(200) vs delay(50) blink speeds</span>
+    </div>
+  </div>
+
+  <details class="stuck-details">
+    <summary class="stuck-summary">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      Upload failed this time?
+    </summary>
+    <div class="stuck-body">
+      <p>Hold <strong>BOOT</strong> immediately after clicking Upload, release when dots appear, then press <strong>EN</strong> to restart the board.</p>
+    </div>
+  </details>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-experiment">
+      <input type="checkbox" class="done-check" id="check-experiment" onchange="onCheckChange(this)">
+      <span class="done-text">Experimented — moving on!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     12. CHALLENGE
+═══════════════════════════════════════════ -->
+<section id="challenge">
+  <h2><span class="num">12</span> Challenge — SOS Blink</h2>
+  <div class="challenge">
+    <div class="challenge-title">Morse Code SOS</div>
+    <p class="wide">Program the international distress signal using only <code>digitalWrite()</code> and <code>delay()</code>.</p>
+    <div class="morse">
+      <span class="s">· · ·</span>&nbsp;&nbsp;
+      <span class="o">— — —</span>&nbsp;&nbsp;
+      <span class="s">· · ·</span>
+    </div>
+    <ul>
+      <li><span class="s" style="font-weight:700;">S (short · ):</span> 200ms on, 200ms off — repeat 3 times</li>
+      <li><span class="o" style="font-weight:700;">O (long — ):</span>  600ms on, 200ms off — repeat 3 times</li>
+      <li><strong>Between full SOS cycles:</strong> 2000ms pause</li>
+    </ul>
+    <details class="stuck-details" style="margin-top:16px;background:#fff;border-color:#A78BFA;">
+      <summary class="stuck-summary" style="color:#6D28D9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Not sure how to start?
+      </summary>
+      <div class="stuck-body" style="border-top-color:#DDD6FE;">
+        <p>Write it in plain English first, then translate each line into code:<br>
+        <em>"Turn ON 200ms. Turn OFF 200ms. Repeat that 3×. Then ON 600ms, OFF 200ms, 3×. Then short pattern again. Then wait 2000ms."</em><br>
+        Each "turn ON for Xms" = <code>digitalWrite(LED_PIN, HIGH); delay(X);</code></p>
+      </div>
+    </details>
+  </div>
+
+  <p style="margin-top:18px;font-size:14px;color:var(--text-muted);">Give it a genuine try before peeking at a solution.</p>
+
+  <label class="honor-label">
+    <input type="checkbox" class="honor-check" id="honor-check" onchange="onHonorCheck(this)">
+    I've had a go at writing the SOS pattern myself
+  </label>
+
+  <button class="reveal-btn" id="reveal-btn" onclick="revealSolution()">Show a working solution</button>
+
+  <div class="solution-reveal" id="sos-solution">
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">C++ — sos.ino</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><span class="kw">const</span> <span class="kw">int</span> LED_PIN <span class="pn">=</span> <span class="num">2</span><span class="pn">;</span>
+
+<span class="kw">void</span> <span class="fn">setup</span><span class="pn">() {</span>
+  <span class="fn">pinMode</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">OUTPUT</span><span class="pn">);</span>
+<span class="pn">}</span>
+
+<span class="kw">void</span> <span class="fn">loop</span><span class="pn">() {</span>
+  <span class="cm">// S — three short blinks</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="cm">// O — three long blinks</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">600</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">600</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">600</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="cm">// S again</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">HIGH</span><span class="pn">);</span> <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">digitalWrite</span><span class="pn">(</span>LED_PIN<span class="pn">,</span> <span class="cn">LOW</span><span class="pn">);</span>  <span class="fn">delay</span><span class="pn">(</span><span class="num">200</span><span class="pn">);</span>
+  <span class="fn">delay</span><span class="pn">(</span><span class="num">2000</span><span class="pn">);</span>
+<span class="pn">}</span></pre>
+    </div>
+  </div>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-challenge">
+      <input type="checkbox" class="done-check" id="check-challenge" onchange="onCheckChange(this)">
+      <span class="done-text">Challenge done!</span>
+    </label>
+    <button class="btn-next" onclick="nextStep()" disabled>Next &#8594;</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     13. WHAT'S NEXT
+═══════════════════════════════════════════ -->
+<section id="next">
+  <h2><span class="num">13</span> What's Next</h2>
+  <p>Look at everything you just accomplished:</p>
+  <div class="learn-grid" style="margin-bottom:24px;">
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Installed Arduino IDE with ESP32 support</div>
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Wrote a real C++ sketch with <code>setup()</code> and <code>loop()</code></div>
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Used <code>pinMode()</code>, <code>digitalWrite()</code>, and <code>delay()</code></div>
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Uploaded code to real hardware over USB</div>
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Modified timing and observed the change live</div>
+    <div class="learn-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Practised the Write → Upload → Observe → Modify loop</div>
+  </div>
+
+  <a class="next-banner" href="WaveKit_M2_Servo.html">
+    <div>
+      <div class="nb-label">Up next</div>
+      <div class="nb-title">Module 2 — Servo &amp; Rudder Control</div>
+      <div class="nb-desc">Learn PWM signals and steer the boat left and right</div>
+    </div>
+    <svg class="nb-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+  </a>
+
+  <div class="section-footer">
+    <button class="btn-back" onclick="prevStep()">&#8592; Back</button>
+    <label class="done-label" for="check-next">
+      <input type="checkbox" class="done-check" id="check-next" onchange="onCheckChange(this)">
+      <span class="done-text">Module 1 complete!</span>
+    </label>
+    <button class="btn-next hidden" onclick="nextStep()">Next &#8594;</button>
+  </div>
+</section>
+
+</div><!-- /page -->
+
+<script>
+function copyCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── Wizard ──────────────────────────────── */
+var DEBUG_MODE = false;
+var SECTIONS = ['learn','parts','esp32','install','anatomy','naming','functions','readcode','upload','experiment','typecheck','challenge','next'];
+var NAMES = {
+  learn:'Welcome', parts:'What You Need', esp32:'Meet the ESP32',
+  install:'Install Arduino IDE', anatomy:'One Line of Code',
+  naming:'Naming Things', functions:'setup() and loop()',
+  readcode:'Read the Sketch', typecheck:'Check Your Knowledge',
+  upload:'Upload', experiment:'Experiment', challenge:'SOS Challenge', next:"What's Next"
+};
+var currentStep = 0, unlockedUpTo = 0;
+var dots = document.querySelectorAll('.step-dot');
+
+function updateDots() {
+  dots.forEach(function(dot, i) {
+    var sec   = document.getElementById(SECTIONS[i]);
+    var check = sec && sec.querySelector('.done-check');
+    var isDone = check && check.checked, isActive = i === currentStep, isLocked = i > unlockedUpTo;
+    dot.classList.toggle('active', isActive);
+    dot.classList.toggle('done',   isDone && !isActive);
+    dot.classList.toggle('locked', isLocked);
+    dot.disabled    = isLocked;
+    dot.textContent = (isDone && !isActive) ? '✓' : String(i + 1);
+  });
+}
+
+function showStep(n, force) {
+  force = force || false;
+  if (n < 0 || n >= SECTIONS.length) return;
+  if (!force && n > unlockedUpTo) return;
+  SECTIONS.forEach(function(id, i) { document.getElementById(id).classList.toggle('active', i === n); });
+  var lbl = document.getElementById('current-section-label');
+  if (lbl) lbl.textContent = NAMES[SECTIONS[n]];
+  var hero = document.querySelector('.hero');
+  if (hero) hero.style.display = (n === 0) ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateDots();
+}
+
+function nextStep() { showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 0) showStep(currentStep - 1, true); }
+
+function onCheckChange(checkbox) {
+  var sec = checkbox.closest('section'), lbl = checkbox.closest('.done-label');
+  var nextBtn = sec && sec.querySelector('.btn-next'), idx = SECTIONS.indexOf(sec.id);
+  lbl.classList.toggle('checked', checkbox.checked);
+  if (checkbox.checked) {
+    unlockedUpTo = Math.max(unlockedUpTo, idx + 1);
+    if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+  } else {
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  updateDots();
+}
+
+dots.forEach(function(dot, i) { dot.addEventListener('click', function(){ showStep(i); }); });
+
+/* ── Install checklist ───────────────────── */
+function toggleItemDone(cb) {
+  var item = cb.closest('.install-item');
+  if (item) item.classList.toggle('item-done', cb.checked);
+}
+
+function checkInstallProgress() {
+  if (DEBUG_MODE) return;
+  var boxes = document.querySelectorAll('#install .install-check');
+  var allChecked = Array.from(boxes).every(function(b){ return b.checked; });
+  var doneCheck = document.getElementById('check-install');
+  var doneLbl   = document.getElementById('install-done-label');
+  var doneText  = document.getElementById('install-done-text');
+  doneCheck.disabled = !allChecked;
+  if (allChecked) {
+    doneLbl.classList.remove('locked-label');
+    doneText.textContent = 'All steps done — continue!';
+  } else {
+    doneLbl.classList.add('locked-label');
+    doneText.textContent = 'Tick all steps above first';
+    if (doneCheck.checked) {
+      doneCheck.checked = false;
+      doneLbl.classList.remove('checked');
+      var nxt = document.querySelector('#install .btn-next');
+      if (nxt) nxt.disabled = true;
+      var idx = SECTIONS.indexOf('install');
+      if (unlockedUpTo > idx) unlockedUpTo = idx;
+      updateDots();
+    }
+  }
+}
+
+/* ── Fill-in-blanks ──────────────────────── */
+/* ── MCQ ─────────────────────────────────── */
+var mcqScore = 0;
+function selectOption(btn, isCorrect) {
+  var card = btn.closest('.mcq-card');
+  if (card.dataset.answered) return;
+  card.dataset.answered = 'true';
+  card.querySelectorAll('.mcq-opt').forEach(function(b) { b.disabled = true; });
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    var correct = card.querySelector('[data-correct="true"]');
+    if (correct) correct.classList.add('correct');
+  }
+  card.querySelector('.mcq-explanation').classList.add('show');
+  if (isCorrect) {
+    mcqScore++;
+    var chip = document.getElementById('mcq-score-chip');
+    chip.textContent = mcqScore + ' / 6 correct';
+    if (mcqScore === 6) {
+      chip.classList.add('all-ok');
+      var dc = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      var dtxt = document.getElementById('typecheck-done-text');
+      if (dc) { dc.disabled = false; }
+      if (dlbl) { dlbl.classList.remove('locked-label'); }
+      if (dtxt) { dtxt.textContent = 'All correct — continue!'; }
+    }
+  }
+}
+
+
+/* ── Upload fill-in blanks ───────────────── */
+function checkUploadBlanks() {
+  if (DEBUG_MODE) return;
+  var blanks = document.querySelectorAll('#upload .code-blank');
+  var allCorrect = blanks.length > 0;
+  blanks.forEach(function(inp) {
+    var val = inp.value.trim(), ans = inp.dataset.answer;
+    if (val === ans) { inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong'); }
+    else if (val !== '') { inp.classList.add('blank-wrong'); inp.classList.remove('blank-correct'); allCorrect = false; }
+    else { inp.classList.remove('blank-correct','blank-wrong'); allCorrect = false; }
+  });
+  var copyBtn = document.getElementById('copy-upload-btn');
+  var okBox   = document.getElementById('upload-blanks-ok');
+  var dc      = document.getElementById('check-upload');
+  var dlbl    = document.getElementById('upload-done-label');
+  var dtxt    = document.getElementById('upload-done-text');
+  if (allCorrect) {
+    if (copyBtn) copyBtn.disabled = false;
+    if (okBox)   okBox.style.display = 'flex';
+    if (dc)      dc.disabled = false;
+    if (dlbl)    dlbl.classList.remove('locked-label');
+    if (dtxt)    dtxt.textContent = 'Sketch filled in — upload it!';
+    unlockedUpTo = Math.max(unlockedUpTo, SECTIONS.indexOf('upload') + 1);
+    updateDots();
+  } else {
+    if (copyBtn) copyBtn.disabled = true;
+    if (okBox)   okBox.style.display = 'none';
+    if (dc && !dc.checked) dc.disabled = true;
+    if (dlbl && !dc.checked) dlbl.classList.add('locked-label');
+  }
+}
+function copyFilledCode(btn) {
+  var pre = btn.closest('.code-block').querySelector('pre');
+  function getText(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeName === 'INPUT') return n.value;
+    var t = ''; n.childNodes.forEach(function(c){ t += getText(c); }); return t;
+  }
+  navigator.clipboard.writeText(getText(pre)).then(function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── SOS honor gate ──────────────────────── */
+function onHonorCheck(cb) {
+  document.getElementById('reveal-btn').style.display = cb.checked ? 'block' : 'none';
+}
+function revealSolution() {
+  document.getElementById('sos-solution').style.display = 'block';
+  var b = document.getElementById('reveal-btn');
+  b.disabled = true; b.textContent = '✓ Solution shown below';
+}
+
+/* ── Debug toggle ────────────────────────── */
+function toggleDebug() {
+  DEBUG_MODE = !DEBUG_MODE;
+  var btn    = document.getElementById('debug-toggle-btn');
+  var banner = document.getElementById('debug-banner');
+  if (DEBUG_MODE) {
+    unlockedUpTo = SECTIONS.length - 1;
+    document.querySelectorAll('.btn-next').forEach(function(b) { b.disabled = false; });
+    document.querySelectorAll('.done-check').forEach(function(c) { c.disabled = false; });
+    document.querySelectorAll('.done-label').forEach(function(l) { l.classList.remove('locked-label'); });
+    document.querySelectorAll('#upload .code-blank').forEach(function(inp) {
+      inp.value = inp.dataset.answer; inp.classList.add('blank-correct'); inp.classList.remove('blank-wrong');
+    });
+    checkUploadBlanks();
+    btn.textContent = '🔓 Debug: ON';
+    btn.classList.add('debug-on');
+    banner.style.display = 'block';
+  } else {
+    // Rebuild unlocked range from actual done-check state
+    unlockedUpTo = 0;
+    SECTIONS.forEach(function(id, i) {
+      var sec = document.getElementById(id);
+      var doneCheck = sec && sec.querySelector('.done-check');
+      var nextBtn   = sec && sec.querySelector('.btn-next');
+      if (doneCheck && doneCheck.checked) {
+        unlockedUpTo = Math.max(unlockedUpTo, i + 1);
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = false;
+      } else {
+        if (nextBtn && !nextBtn.classList.contains('hidden')) nextBtn.disabled = true;
+      }
+    });
+    // Re-apply special gates for uncompleted sections
+    checkInstallProgress();
+    checkUploadBlanks();
+    if (mcqScore < 6) {
+      var dc   = document.getElementById('check-typecheck');
+      var dlbl = document.getElementById('typecheck-done-label');
+      if (dc && !dc.checked)   { dc.disabled = true; }
+      if (dlbl && !document.getElementById('check-typecheck').checked) { dlbl.classList.add('locked-label'); }
+    }
+    btn.textContent = '🔒 Debug: OFF';
+    btn.classList.remove('debug-on');
+    banner.style.display = 'none';
+  }
+  updateDots();
+}
+
+/* ── Init ────────────────────────────────── */
+updateDots();
+showStep(0, true);
+</script>
+
+<div id="debug-banner" class="debug-banner" role="status" aria-live="polite" style="display:none">
+  ⚠ DEBUG MODE — all sections unlocked. Click "Debug: ON" to restore normal student gating.
+</div>
+</body>
+</html>
